@@ -5,11 +5,11 @@ This directory contains tests for the Firecrawl CLI commands. Tests use Vitest a
 ## Running Tests
 
 ```bash
-# Run tests in watch mode
-pnpm test
-
 # Run tests once
 pnpm test:run
+
+# Run tests in watch mode
+pnpm test:watch
 
 # Run tests with UI
 pnpm test:ui
