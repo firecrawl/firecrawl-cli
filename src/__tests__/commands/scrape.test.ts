@@ -2,18 +2,17 @@
  * Tests for scrape command
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { executeScrape } from '../../commands/scrape';
 import { getClient } from '../../utils/client';
 import { initializeConfig } from '../../utils/config';
 import { setupTest, teardownTest } from '../utils/mock-client';
 
 // Mock the Firecrawl client module
-vi.mock('../../utils/client', async () => {
-  const actual = await vi.importActual('../../utils/client');
+jest.mock('../../utils/client', () => {
+  const actual = jest.requireActual('../../utils/client');
   return {
     ...actual,
-    getClient: vi.fn(),
+    getClient: jest.fn(),
   };
 });
 
@@ -30,16 +29,16 @@ describe('executeScrape', () => {
 
     // Create mock client
     mockClient = {
-      scrape: vi.fn(),
+      scrape: jest.fn(),
     };
 
     // Mock getClient to return our mock
-    vi.mocked(getClient).mockReturnValue(mockClient as any);
+    jest.mocked(getClient).mockReturnValue(mockClient as any);
   });
 
   afterEach(() => {
     teardownTest();
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('API call generation', () => {

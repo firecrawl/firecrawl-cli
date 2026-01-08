@@ -2,7 +2,7 @@
  * Tests for job utility functions
  */
 
-import { describe, it, expect } from 'vitest';
+// Jest globals are available by default
 import { isJobId, isValidUrl } from '../../utils/job';
 
 describe('isJobId', () => {

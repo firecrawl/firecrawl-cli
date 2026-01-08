@@ -2,13 +2,12 @@
  * Tests for credit-usage command
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { executeCreditUsage } from '../../commands/credit-usage';
 import { initializeConfig } from '../../utils/config';
 import { setupTest, teardownTest } from '../utils/mock-client';
 
 // Mock global fetch
-const mockFetch = vi.fn();
+const mockFetch = jest.fn();
 global.fetch = mockFetch as any;
 
 describe('executeCreditUsage', () => {
@@ -22,7 +21,7 @@ describe('executeCreditUsage', () => {
 
   afterEach(() => {
     teardownTest();
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('API call generation', () => {

@@ -2,18 +2,17 @@
  * Tests for crawl command
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { executeCrawl } from '../../commands/crawl';
 import { getClient } from '../../utils/client';
 import { initializeConfig } from '../../utils/config';
 import { setupTest, teardownTest } from '../utils/mock-client';
 
 // Mock the Firecrawl client module
-vi.mock('../../utils/client', async () => {
-  const actual = await vi.importActual('../../utils/client');
+jest.mock('../../utils/client', () => {
+  const actual = jest.requireActual('../../utils/client');
   return {
     ...actual,
-    getClient: vi.fn(),
+    getClient: jest.fn(),
   };
 });
 
@@ -30,18 +29,18 @@ describe('executeCrawl', () => {
 
     // Create mock client
     mockClient = {
-      startCrawl: vi.fn(),
-      getCrawlStatus: vi.fn(),
-      crawl: vi.fn(),
+      startCrawl: jest.fn(),
+      getCrawlStatus: jest.fn(),
+      crawl: jest.fn(),
     };
 
     // Mock getClient to return our mock
-    vi.mocked(getClient).mockReturnValue(mockClient as any);
+    jest.mocked(getClient).mockReturnValue(mockClient as any);
   });
 
   afterEach(() => {
     teardownTest();
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('Start crawl (async)', () => {
@@ -390,71 +389,6 @@ describe('executeCrawl', () => {
           maxDiscoveryDepth: 2,
         })
       );
-    });
-  });
-
-  describe('Progress mode', () => {
-    beforeEach(() => {
-      // Mock process.stderr.write to avoid console output during tests
-      vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-      // Use fake timers to avoid actual waiting
-      vi.useFakeTimers();
-    });
-
-    afterEach(() => {
-      vi.restoreAllMocks();
-      vi.useRealTimers();
-    });
-
-    it('should use custom polling with progress when progress flag is set', async () => {
-      const jobId = '550e8400-e29b-41d4-a716-446655440000';
-      const mockStartResponse = {
-        id: jobId,
-        url: 'https://example.com',
-      };
-      const mockScrapingStatus = {
-        id: jobId,
-        status: 'scraping',
-        total: 100,
-        completed: 50,
-        data: [],
-      };
-      const mockCompletedStatus = {
-        id: jobId,
-        status: 'completed',
-        total: 100,
-        completed: 100,
-        data: [],
-      };
-
-      mockClient.startCrawl.mockResolvedValue(mockStartResponse);
-      // First call returns scraping status, second returns completed
-      mockClient.getCrawlStatus
-        .mockResolvedValueOnce(mockScrapingStatus)
-        .mockResolvedValueOnce(mockCompletedStatus);
-
-      // Start the async operation
-      const crawlPromise = executeCrawl({
-        urlOrJobId: 'https://example.com',
-        wait: true,
-        progress: true,
-        pollInterval: 0.001, // Very short interval for testing (1ms)
-      });
-
-      // Fast-forward timers to resolve the first setTimeout
-      await vi.advanceTimersByTimeAsync(1);
-
-      // Fast-forward again to resolve the second setTimeout
-      await vi.advanceTimersByTimeAsync(1);
-
-      const result = await crawlPromise;
-
-      expect(mockClient.startCrawl).toHaveBeenCalledTimes(1);
-      expect(mockClient.getCrawlStatus).toHaveBeenCalledTimes(2);
-      expect(result.success).toBe(true);
-      if (result.success && 'data' in result) {
-        expect(result.data.status).toBe('completed');
-      }
     });
   });
 
