@@ -73,7 +73,7 @@ export function validateConfig(apiKey?: string): void {
   const key = getApiKey(apiKey);
   if (!key) {
     throw new Error(
-      'API key is required. Set FIRECRAWL_API_KEY environment variable, use --api-key flag, run "firecrawl config set-api-key", or initialize config.'
+      'API key is required. Set FIRECRAWL_API_KEY environment variable, use --api-key flag, or run "firecrawl config" to set the API key.'
     );
   }
 }
