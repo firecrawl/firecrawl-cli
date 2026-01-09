@@ -5,7 +5,6 @@
 import type { FormatOption } from '@mendable/firecrawl-js';
 import type { ScrapeOptions, ScrapeResult } from '../types/scrape';
 import { getClient } from '../utils/client';
-import { updateConfig } from '../utils/config';
 import { handleScrapeOutput } from '../utils/output';
 
 /**
@@ -15,13 +14,8 @@ export async function executeScrape(
   options: ScrapeOptions
 ): Promise<ScrapeResult> {
   try {
-    // Update global config if API key is provided via options
-    if (options.apiKey) {
-      updateConfig({ apiKey: options.apiKey });
-    }
-
-    // Get client instance (uses global config)
-    const app = getClient();
+    // Get client instance (updates global config if apiKey provided)
+    const app = getClient({ apiKey: options.apiKey });
 
     // Build scrape options
     const formats: FormatOption[] = [];

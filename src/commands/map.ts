@@ -4,7 +4,6 @@
 
 import type { MapOptions, MapResult } from '../types/map';
 import { getClient } from '../utils/client';
-import { updateConfig } from '../utils/config';
 import { writeOutput } from '../utils/output';
 
 /**
@@ -12,12 +11,7 @@ import { writeOutput } from '../utils/output';
  */
 export async function executeMap(options: MapOptions): Promise<MapResult> {
   try {
-    // Update global config if API key is provided
-    if (options.apiKey) {
-      updateConfig({ apiKey: options.apiKey });
-    }
-
-    const app = getClient();
+    const app = getClient({ apiKey: options.apiKey });
     const { urlOrJobId } = options;
 
     // Build map options

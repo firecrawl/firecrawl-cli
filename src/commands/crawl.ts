@@ -8,7 +8,6 @@ import type {
   CrawlStatusResult,
 } from '../types/crawl';
 import { getClient } from '../utils/client';
-import { updateConfig } from '../utils/config';
 import { isJobId } from '../utils/job';
 import { writeOutput } from '../utils/output';
 
@@ -20,7 +19,7 @@ async function checkCrawlStatus(
   options: CrawlOptions
 ): Promise<CrawlStatusResult> {
   try {
-    const app = getClient();
+    const app = getClient({ apiKey: options.apiKey });
     const status = await app.getCrawlStatus(jobId);
 
     return {
@@ -49,12 +48,7 @@ export async function executeCrawl(
   options: CrawlOptions
 ): Promise<CrawlResult | CrawlStatusResult> {
   try {
-    // Update global config if API key is provided
-    if (options.apiKey) {
-      updateConfig({ apiKey: options.apiKey });
-    }
-
-    const app = getClient();
+    const app = getClient({ apiKey: options.apiKey });
     const { urlOrJobId, status, wait, pollInterval, timeout } = options;
 
     // If status flag is set or input looks like a job ID, check status

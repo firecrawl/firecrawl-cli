@@ -5,7 +5,12 @@
 
 import Firecrawl from '@mendable/firecrawl-js';
 import type { FirecrawlClientOptions } from '@mendable/firecrawl-js';
-import { getConfig, validateConfig, type GlobalConfig } from './config';
+import {
+  getConfig,
+  validateConfig,
+  updateConfig,
+  type GlobalConfig,
+} from './config';
 
 let clientInstance: Firecrawl | null = null;
 
@@ -22,8 +27,31 @@ export function getClient(
   ): string | undefined =>
     value === null || value === undefined ? undefined : value;
 
-  // If options provided, create a new instance (useful for command-specific overrides)
+  // If options provided, update global config and create a new instance
   if (options) {
+    // Update global config with provided options (for future calls)
+    // Only include properties that are explicitly provided (not undefined)
+    const configUpdate: Partial<GlobalConfig> = {};
+    if (options.apiKey !== undefined) {
+      configUpdate.apiKey = normalizeApiKey(options.apiKey);
+    }
+    if (options.apiUrl !== undefined) {
+      configUpdate.apiUrl = normalizeApiKey(options.apiUrl);
+    }
+    if (options.timeoutMs !== undefined) {
+      configUpdate.timeoutMs = options.timeoutMs;
+    }
+    if (options.maxRetries !== undefined) {
+      configUpdate.maxRetries = options.maxRetries;
+    }
+    if (options.backoffFactor !== undefined) {
+      configUpdate.backoffFactor = options.backoffFactor;
+    }
+
+    if (Object.keys(configUpdate).length > 0) {
+      updateConfig(configUpdate);
+    }
+
     const config = getConfig();
     const apiKey = normalizeApiKey(options.apiKey) ?? config.apiKey;
     const apiUrl = normalizeApiKey(options.apiUrl) ?? config.apiUrl;

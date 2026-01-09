@@ -7,7 +7,8 @@
 
 import { Command } from 'commander';
 import { handleScrapeCommand } from './commands/scrape';
-import { initializeConfig, updateConfig } from './utils/config';
+import { initializeConfig } from './utils/config';
+import { getClient } from './utils/client';
 import { configure } from './commands/config';
 import { handleCreditUsageCommand } from './commands/credit-usage';
 import { handleCrawlCommand } from './commands/crawl';
@@ -36,7 +37,7 @@ program
     // Update global config if API key is provided via global option
     const globalOptions = thisCommand.opts();
     if (globalOptions.apiKey) {
-      updateConfig({ apiKey: globalOptions.apiKey });
+      getClient({ apiKey: globalOptions.apiKey });
     }
   });
 

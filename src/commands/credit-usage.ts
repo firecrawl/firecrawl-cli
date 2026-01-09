@@ -4,7 +4,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { getConfig, updateConfig, validateConfig } from '../utils/config';
+import { getConfig, validateConfig } from '../utils/config';
+import { getClient } from '../utils/client';
 
 export interface CreditUsageResult {
   success: boolean;
@@ -35,17 +36,17 @@ export async function executeCreditUsage(
   options: CreditUsageOptions = {}
 ): Promise<CreditUsageResult> {
   try {
-    // Update global config if API key is provided via options
+    // Update config if API key provided (via getClient)
     if (options.apiKey) {
-      updateConfig({ apiKey: options.apiKey });
+      getClient({ apiKey: options.apiKey });
     }
 
     // Get config and validate API key
     const config = getConfig();
-    validateConfig(config.apiKey);
+    const apiKey = options.apiKey || config.apiKey;
+    validateConfig(apiKey);
 
     const apiUrl = config.apiUrl || 'https://api.firecrawl.dev';
-    const apiKey = config.apiKey!;
 
     // Make the API call to /v2/team/credit-usage
     const url = `${apiUrl.replace(/\/$/, '')}/v2/team/credit-usage`;
