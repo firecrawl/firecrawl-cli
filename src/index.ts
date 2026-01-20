@@ -54,8 +54,8 @@ function createScrapeCommand(): Command {
     )
     .option('-H, --html', 'Output raw HTML (shortcut for --format html)')
     .option(
-      '-f, --format <format>',
-      'Output format: markdown, html, rawHtml, links, images, screenshot, summary, changeTracking, json, attributes, branding',
+      '-f, --format <formats>',
+      'Output format(s). Multiple formats can be specified with commas (e.g., "markdown,links,images"). Available: markdown, html, rawHtml, links, images, screenshot, summary, changeTracking, json, attributes, branding. Single format outputs raw content; multiple formats output JSON.',
       'markdown'
     )
     .option('--only-main-content', 'Include only main content', false)

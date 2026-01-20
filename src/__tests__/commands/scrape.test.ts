@@ -63,7 +63,7 @@ describe('executeScrape', () => {
 
       await executeScrape({
         url: 'https://example.com',
-        format: 'html',
+        formats: ['html'],
       });
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
@@ -97,7 +97,7 @@ describe('executeScrape', () => {
 
       await executeScrape({
         url: 'https://example.com',
-        format: 'markdown',
+        formats: ['markdown'],
         screenshot: true,
       });
 
@@ -172,7 +172,7 @@ describe('executeScrape', () => {
 
       await executeScrape({
         url: 'https://example.com',
-        format: 'markdown',
+        formats: ['markdown'],
         screenshot: true,
         onlyMainContent: true,
         waitFor: 3000,
@@ -256,21 +256,39 @@ describe('executeScrape', () => {
 
   describe('Type safety', () => {
     it('should accept valid ScrapeFormat types', async () => {
-      const formats: Array<'markdown' | 'html' | 'rawHtml' | 'links'> = [
+      const formatList: Array<'markdown' | 'html' | 'rawHtml' | 'links'> = [
         'markdown',
         'html',
         'rawHtml',
         'links',
       ];
 
-      for (const format of formats) {
+      for (const format of formatList) {
         mockClient.scrape.mockResolvedValue({ [format]: 'test' });
         const result = await executeScrape({
           url: 'https://example.com',
-          format,
+          formats: [format],
         });
         expect(result.success).toBe(true);
       }
+    });
+
+    it('should accept multiple formats', async () => {
+      mockClient.scrape.mockResolvedValue({
+        markdown: '# Test',
+        links: ['http://a.com'],
+        images: ['http://img.com/a.png'],
+      });
+
+      const result = await executeScrape({
+        url: 'https://example.com',
+        formats: ['markdown', 'links', 'images'],
+      });
+
+      expect(result.success).toBe(true);
+      expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
+        formats: ['markdown', 'links', 'images'],
+      });
     });
   });
 });
