@@ -3,7 +3,11 @@
  */
 
 import type { FormatOption } from '@mendable/firecrawl-js';
-import type { ScrapeOptions, ScrapeResult } from '../types/scrape';
+import type {
+  ScrapeOptions,
+  ScrapeResult,
+  ScrapeFormat,
+} from '../types/scrape';
 import { getClient } from '../utils/client';
 import { handleScrapeOutput } from '../utils/output';
 
@@ -51,15 +55,14 @@ export async function executeScrape(
   // Build scrape options
   const formats: FormatOption[] = [];
 
-  if (options.format) {
-    formats.push(options.format);
+  // Add requested formats
+  if (options.formats && options.formats.length > 0) {
+    formats.push(...options.formats);
   }
 
-  if (options.screenshot) {
-    // Add screenshot format if not already included
-    if (!formats.includes('screenshot')) {
-      formats.push('screenshot');
-    }
+  // Add screenshot format if requested and not already included
+  if (options.screenshot && !formats.includes('screenshot')) {
+    formats.push('screenshot');
   }
 
   // If no formats specified, default to markdown
@@ -123,5 +126,17 @@ export async function handleScrapeCommand(
   options: ScrapeOptions
 ): Promise<void> {
   const result = await executeScrape(options);
-  handleScrapeOutput(result, options.format, options.output, options.pretty);
+
+  // Determine effective formats for output handling
+  const effectiveFormats: ScrapeFormat[] =
+    options.formats && options.formats.length > 0
+      ? [...options.formats]
+      : ['markdown'];
+
+  // Add screenshot to effective formats if it was requested separately
+  if (options.screenshot && !effectiveFormats.includes('screenshot')) {
+    effectiveFormats.push('screenshot');
+  }
+
+  handleScrapeOutput(result, effectiveFormats, options.output, options.pretty);
 }

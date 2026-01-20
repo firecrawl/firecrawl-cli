@@ -4,54 +4,91 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import type { ScrapeResult } from '../types/scrape';
-import type { ScrapeFormat } from '../types/scrape';
+import type { ScrapeResult, ScrapeFormat } from '../types/scrape';
+
+/**
+ * Text formats that can be output as raw content (curl-like)
+ */
+const RAW_TEXT_FORMATS: ScrapeFormat[] = [
+  'html',
+  'rawHtml',
+  'markdown',
+  'links',
+  'images',
+  'summary',
+];
 
 /**
  * Extract content from Firecrawl Document based on format
  */
-function extractContent(data: any, format?: ScrapeFormat): string | null {
+function extractContent(data: any, format: ScrapeFormat): string | null {
   if (!data) return null;
 
-  // If format is specified, try to extract that specific content
-  if (format) {
-    // Handle html/rawHtml formats - extract HTML content directly
-    if (format === 'html' || format === 'rawHtml') {
-      return data.html || data.rawHtml || data[format] || null;
-    }
-
-    // Handle markdown format
-    if (format === 'markdown') {
-      return data.markdown || data[format] || null;
-    }
-
-    // Handle links format
-    if (format === 'links') {
-      return data.links || data[format] || null;
-    }
-
-    // Handle images format
-    if (format === 'images') {
-      return data.images || data[format] || null;
-    }
-
-    // Handle summary format
-    if (format === 'summary') {
-      return data.summary || data[format] || null;
-    }
+  // Handle html/rawHtml formats - extract HTML content directly
+  if (format === 'html' || format === 'rawHtml') {
+    return data.html || data.rawHtml || data[format] || null;
   }
 
-  // Fallback: try common content fields
-  if (typeof data === 'string') {
-    return data;
+  // Handle markdown format
+  if (format === 'markdown') {
+    return data.markdown || data[format] || null;
   }
 
-  // If it's an object, try to find string content
-  if (typeof data === 'object') {
-    return data.html || data.markdown || data.rawHtml || data.content || null;
+  // Handle links format (array of URLs -> newline-separated string)
+  if (format === 'links') {
+    const links = data.links || data[format];
+    if (Array.isArray(links)) {
+      return links.join('\n');
+    }
+    return links || null;
+  }
+
+  // Handle images format (array of URLs -> newline-separated string)
+  if (format === 'images') {
+    const images = data.images || data[format];
+    if (Array.isArray(images)) {
+      return images.join('\n');
+    }
+    return images || null;
+  }
+
+  // Handle summary format
+  if (format === 'summary') {
+    return data.summary || data[format] || null;
   }
 
   return null;
+}
+
+/**
+ * Extract multiple format contents from response data
+ */
+function extractMultipleFormats(
+  data: any,
+  formats: ScrapeFormat[]
+): Record<string, any> {
+  const result: Record<string, any> = {};
+
+  for (const format of formats) {
+    const key = format;
+
+    if (data[key] !== undefined) {
+      result[key] = data[key];
+    } else if (format === 'html' && data.rawHtml !== undefined) {
+      // Fallback for html -> rawHtml
+      result[key] = data.rawHtml;
+    } else if (format === 'rawHtml' && data.html !== undefined) {
+      // Fallback for rawHtml -> html
+      result[key] = data.html;
+    }
+  }
+
+  // Always include metadata if present
+  if (data.metadata) {
+    result.metadata = data.metadata;
+  }
+
+  return result;
 }
 
 /**
@@ -84,12 +121,15 @@ export function writeOutput(
 
 /**
  * Handle scrape result output
- * For text formats (html, markdown, etc.), outputs raw content directly
- * For complex formats, outputs JSON
+ *
+ * Output behavior:
+ * - Single text format (html, markdown, links, images, summary, rawHtml): raw content
+ * - Single complex format (screenshot, json, branding, etc.): JSON output
+ * - Multiple formats: JSON with all requested data
  */
 export function handleScrapeOutput(
   result: ScrapeResult,
-  format?: ScrapeFormat,
+  formats: ScrapeFormat[],
   outputPath?: string,
   pretty: boolean = false
 ): void {
@@ -103,42 +143,43 @@ export function handleScrapeOutput(
     return;
   }
 
-  // Text formats that should output raw content (curl-like)
-  const rawTextFormats: ScrapeFormat[] = [
-    'html',
-    'rawHtml',
-    'markdown',
-    'links',
-    'images',
-    'summary',
-  ];
-  const shouldOutputRaw = format && rawTextFormats.includes(format);
+  // Determine output mode based on number of formats
+  const isSingleFormat = formats.length === 1;
+  const singleFormat = isSingleFormat ? formats[0] : null;
+  const isRawTextFormat =
+    singleFormat && RAW_TEXT_FORMATS.includes(singleFormat);
 
-  if (shouldOutputRaw) {
-    // Extract and output raw content
-    const content = extractContent(result.data, format);
+  // Single raw text format: output raw content (current behavior)
+  if (isSingleFormat && isRawTextFormat && singleFormat) {
+    const content = extractContent(result.data, singleFormat);
     if (content !== null) {
       writeOutput(content, outputPath, !!outputPath);
       return;
     }
   }
 
-  // For JSON format or complex formats (branding, json, etc.), output clean JSON
-  // Always stringify the entire data object to ensure valid JSON
+  // Multiple formats or complex format: output JSON
+  let outputData: any;
+
+  if (isSingleFormat) {
+    // Single complex format - output entire data object
+    outputData = result.data;
+  } else {
+    // Multiple formats - extract only requested formats
+    outputData = extractMultipleFormats(result.data, formats);
+  }
+
   let jsonContent: string;
   try {
     jsonContent = pretty
-      ? JSON.stringify(result.data, null, 2)
-      : JSON.stringify(result.data);
+      ? JSON.stringify(outputData, null, 2)
+      : JSON.stringify(outputData);
   } catch (error) {
-    // If stringification fails, try to create a minimal error response
     jsonContent = JSON.stringify({
       error: 'Failed to serialize response',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 
-  // Ensure clean JSON output (no extra newlines or text before JSON)
-  // Output directly to stdout without any prefix
   writeOutput(jsonContent, outputPath, !!outputPath);
 }

@@ -18,8 +18,8 @@ export type ScrapeFormat =
 export interface ScrapeOptions {
   /** URL to scrape */
   url: string;
-  /** Output format (markdown, html, etc.) */
-  format?: ScrapeFormat;
+  /** Output format(s) - single format or array of formats */
+  formats?: ScrapeFormat[];
   /** Include only main content */
   onlyMainContent?: boolean;
   /** Wait time before scraping (ms) */
