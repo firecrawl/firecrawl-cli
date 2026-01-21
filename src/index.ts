@@ -7,20 +7,35 @@
 
 import { Command } from 'commander';
 import { handleScrapeCommand } from './commands/scrape';
-import { initializeConfig } from './utils/config';
+import { initializeConfig, updateConfig } from './utils/config';
 import { getClient } from './utils/client';
-import { configure } from './commands/config';
+import { configure, viewConfig } from './commands/config';
 import { handleCreditUsageCommand } from './commands/credit-usage';
 import { handleCrawlCommand } from './commands/crawl';
 import { handleMapCommand } from './commands/map';
+import { handleSearchCommand } from './commands/search';
 import { handleVersionCommand } from './commands/version';
+import { handleLoginCommand } from './commands/login';
+import { handleLogoutCommand } from './commands/logout';
 import { isUrl, normalizeUrl } from './utils/url';
 import { parseScrapeOptions } from './utils/options';
 import { isJobId } from './utils/job';
+import { ensureAuthenticated, printBanner } from './utils/auth';
 import packageJson from '../package.json';
+import type { SearchSource, SearchCategory } from './types/search';
+import type { ScrapeFormat } from './types/scrape';
 
 // Initialize global configuration from environment variables
 initializeConfig();
+
+// Commands that require authentication
+const AUTH_REQUIRED_COMMANDS = [
+  'scrape',
+  'crawl',
+  'map',
+  'search',
+  'credit-usage',
+];
 
 const program = new Command();
 
@@ -30,14 +45,21 @@ program
   .version(packageJson.version)
   .option(
     '-k, --api-key <key>',
-    'Firecrawl API key (or set FIRECRAWL_API_KEY env var, or use "firecrawl config")'
+    'Firecrawl API key (or set FIRECRAWL_API_KEY env var)'
   )
   .allowUnknownOption() // Allow unknown options when URL is passed directly
-  .hook('preAction', (thisCommand, actionCommand) => {
+  .hook('preAction', async (thisCommand, actionCommand) => {
     // Update global config if API key is provided via global option
     const globalOptions = thisCommand.opts();
     if (globalOptions.apiKey) {
-      getClient({ apiKey: globalOptions.apiKey });
+      updateConfig({ apiKey: globalOptions.apiKey });
+    }
+
+    // Check if this command requires authentication
+    const commandName = actionCommand.name();
+    if (AUTH_REQUIRED_COMMANDS.includes(commandName)) {
+      // Ensure user is authenticated (prompts for login if needed)
+      await ensureAuthenticated();
     }
   });
 
@@ -266,15 +288,208 @@ function createMapCommand(): Command {
   return mapCmd;
 }
 
-// Add crawl and map commands to main program
+/**
+ * Create and configure the search command
+ */
+function createSearchCommand(): Command {
+  const searchCmd = new Command('search')
+    .description('Search the web using Firecrawl')
+    .argument('<query>', 'Search query')
+    .option(
+      '--limit <number>',
+      'Maximum number of results (default: 5, max: 100)',
+      parseInt
+    )
+    .option(
+      '--sources <sources>',
+      'Comma-separated sources to search: web, images, news (default: web)'
+    )
+    .option(
+      '--categories <categories>',
+      'Comma-separated categories to filter: github, research, pdf'
+    )
+    .option(
+      '--tbs <value>',
+      'Time-based search: qdr:h (hour), qdr:d (day), qdr:w (week), qdr:m (month), qdr:y (year)'
+    )
+    .option(
+      '--location <location>',
+      'Location for geo-targeting (e.g., "Germany", "San Francisco,California,United States")'
+    )
+    .option(
+      '--country <code>',
+      'ISO country code for geo-targeting (default: US)'
+    )
+    .option(
+      '--timeout <ms>',
+      'Timeout in milliseconds (default: 60000)',
+      parseInt
+    )
+    .option(
+      '--ignore-invalid-urls',
+      'Exclude URLs invalid for other Firecrawl endpoints',
+      false
+    )
+    .option('--scrape', 'Enable scraping of search results', false)
+    .option(
+      '--scrape-formats <formats>',
+      'Comma-separated scrape formats when --scrape is enabled: markdown, html, rawHtml, links, etc. (default: markdown)'
+    )
+    .option(
+      '--only-main-content',
+      'Include only main content when scraping',
+      true
+    )
+    .option(
+      '-k, --api-key <key>',
+      'Firecrawl API key (overrides global --api-key)'
+    )
+    .option('-o, --output <path>', 'Output file path (default: stdout)')
+    .option(
+      '-p, --pretty',
+      'Output as pretty JSON (default: human-readable)',
+      false
+    )
+    .option('--json', 'Output as compact JSON', false)
+    .action(async (query, options) => {
+      // Parse sources
+      let sources: SearchSource[] | undefined;
+      if (options.sources) {
+        sources = options.sources
+          .split(',')
+          .map((s: string) => s.trim().toLowerCase()) as SearchSource[];
+
+        // Validate sources
+        const validSources = ['web', 'images', 'news'];
+        for (const source of sources) {
+          if (!validSources.includes(source)) {
+            console.error(
+              `Error: Invalid source "${source}". Valid sources: ${validSources.join(', ')}`
+            );
+            process.exit(1);
+          }
+        }
+      }
+
+      // Parse categories
+      let categories: SearchCategory[] | undefined;
+      if (options.categories) {
+        categories = options.categories
+          .split(',')
+          .map((c: string) => c.trim().toLowerCase()) as SearchCategory[];
+
+        // Validate categories
+        const validCategories = ['github', 'research', 'pdf'];
+        for (const category of categories) {
+          if (!validCategories.includes(category)) {
+            console.error(
+              `Error: Invalid category "${category}". Valid categories: ${validCategories.join(', ')}`
+            );
+            process.exit(1);
+          }
+        }
+      }
+
+      // Parse scrape formats
+      let scrapeFormats: ScrapeFormat[] | undefined;
+      if (options.scrapeFormats) {
+        scrapeFormats = options.scrapeFormats
+          .split(',')
+          .map((f: string) => f.trim()) as ScrapeFormat[];
+      }
+
+      const searchOptions = {
+        query,
+        limit: options.limit,
+        sources,
+        categories,
+        tbs: options.tbs,
+        location: options.location,
+        country: options.country,
+        timeout: options.timeout,
+        ignoreInvalidUrls: options.ignoreInvalidUrls,
+        scrape: options.scrape,
+        scrapeFormats,
+        onlyMainContent: options.onlyMainContent,
+        apiKey: options.apiKey,
+        output: options.output,
+        json: options.json,
+        pretty: options.pretty,
+      };
+
+      await handleSearchCommand(searchOptions);
+    });
+
+  return searchCmd;
+}
+
+// Add crawl, map, and search commands to main program
 program.addCommand(createCrawlCommand());
 program.addCommand(createMapCommand());
+program.addCommand(createSearchCommand());
 
 program
   .command('config')
-  .description('Configure API URL and API key (interactive)')
+  .description('Configure Firecrawl (login if not authenticated)')
+  .option(
+    '-k, --api-key <key>',
+    'Provide API key directly (skips interactive flow)'
+  )
+  .option('--api-url <url>', 'API URL (default: https://api.firecrawl.dev)')
+  .option(
+    '--web-url <url>',
+    'Web URL for browser login (default: https://firecrawl.dev)'
+  )
+  .option(
+    '-m, --method <method>',
+    'Login method: "browser" or "manual" (default: interactive prompt)'
+  )
+  .action(async (options) => {
+    await configure({
+      apiKey: options.apiKey,
+      apiUrl: options.apiUrl,
+      webUrl: options.webUrl,
+      method: options.method,
+    });
+  });
+
+program
+  .command('view-config')
+  .description('View current configuration and authentication status')
   .action(async () => {
-    await configure();
+    await viewConfig();
+  });
+
+program
+  .command('login')
+  .description('Login to Firecrawl (alias for config)')
+  .option(
+    '-k, --api-key <key>',
+    'Provide API key directly (skips interactive flow)'
+  )
+  .option('--api-url <url>', 'API URL (default: https://api.firecrawl.dev)')
+  .option(
+    '--web-url <url>',
+    'Web URL for browser login (default: https://firecrawl.dev)'
+  )
+  .option(
+    '-m, --method <method>',
+    'Login method: "browser" or "manual" (default: interactive prompt)'
+  )
+  .action(async (options) => {
+    await handleLoginCommand({
+      apiKey: options.apiKey,
+      apiUrl: options.apiUrl,
+      webUrl: options.webUrl,
+      method: options.method,
+    });
+  });
+
+program
+  .command('logout')
+  .description('Logout and clear stored credentials')
+  .action(async () => {
+    await handleLogoutCommand();
   });
 
 program
@@ -305,30 +520,55 @@ program
 // Parse arguments
 const args = process.argv.slice(2);
 
-// Check if first argument is a URL (and not a command)
-if (args.length > 0 && !args[0].startsWith('-') && isUrl(args[0])) {
-  // Treat as scrape command with URL - reuse commander's parsing
-  const url = normalizeUrl(args[0]);
+// Handle the main entry point
+async function main() {
+  // If no arguments or just help flags, check auth and show appropriate message
+  if (args.length === 0) {
+    const { isAuthenticated } = await import('./utils/auth');
 
-  // Modify argv to include scrape command with URL as positional argument
-  // This allows commander to parse it normally with all hooks and options
-  const modifiedArgv = [
-    process.argv[0],
-    process.argv[1],
-    'scrape',
-    url,
-    ...args.slice(1),
-  ];
+    if (!isAuthenticated()) {
+      // Not authenticated - prompt for login (banner is shown by ensureAuthenticated)
+      await ensureAuthenticated();
 
-  // Parse using the main program (which includes hooks and global options)
-  program.parseAsync(modifiedArgv).catch((error) => {
-    console.error(
-      'Error:',
-      error instanceof Error ? error.message : 'Unknown error'
-    );
-    process.exit(1);
-  });
-} else {
-  // Normal command parsing
-  program.parse();
+      console.log("You're all set! Try scraping a URL:\n");
+      console.log('  firecrawl https://example.com\n');
+      console.log('For more commands, run: firecrawl --help\n');
+      return;
+    }
+
+    // Authenticated - show banner and help
+    printBanner();
+    program.outputHelp();
+    return;
+  }
+
+  // Check if first argument is a URL (and not a command)
+  if (!args[0].startsWith('-') && isUrl(args[0])) {
+    // Treat as scrape command with URL - reuse commander's parsing
+    const url = normalizeUrl(args[0]);
+
+    // Modify argv to include scrape command with URL as positional argument
+    // This allows commander to parse it normally with all hooks and options
+    const modifiedArgv = [
+      process.argv[0],
+      process.argv[1],
+      'scrape',
+      url,
+      ...args.slice(1),
+    ];
+
+    // Parse using the main program (which includes hooks and global options)
+    await program.parseAsync(modifiedArgv);
+  } else {
+    // Normal command parsing
+    await program.parseAsync();
+  }
 }
+
+main().catch((error) => {
+  console.error(
+    'Error:',
+    error instanceof Error ? error.message : 'Unknown error'
+  );
+  process.exit(1);
+});

@@ -1,83 +1,70 @@
 /**
  * Config command implementation
- * Manages stored credentials and configuration
+ * Handles configuration and authentication
  */
 
-import * as readline from 'readline';
-import { saveCredentials, getConfigDirectoryPath } from '../utils/credentials';
-import { updateConfig } from '../utils/config';
+import { loadCredentials, getConfigDirectoryPath } from '../utils/credentials';
+import { getConfig } from '../utils/config';
+import { isAuthenticated, ensureAuthenticated } from '../utils/auth';
 
-const DEFAULT_API_URL = 'https://api.firecrawl.dev';
-
-/**
- * Prompt for input (for secure API key entry)
- */
-function promptInput(question: string, defaultValue?: string): Promise<string> {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  const promptText = defaultValue
-    ? `${question} [${defaultValue}]: `
-    : `${question} `;
-
-  return new Promise((resolve) => {
-    rl.question(promptText, (answer) => {
-      rl.close();
-      resolve(answer.trim() || defaultValue || '');
-    });
-  });
+export interface ConfigureOptions {
+  apiKey?: string;
+  apiUrl?: string;
+  webUrl?: string;
+  method?: 'browser' | 'manual';
 }
 
 /**
- * Interactive configuration setup
- * Asks for API URL and API key
+ * Configure/login - triggers login flow when not authenticated
  */
-export async function configure(): Promise<void> {
-  console.log('Firecrawl Configuration Setup\n');
-
-  // Prompt for API URL with default
-  let url = await promptInput('Enter API URL', DEFAULT_API_URL);
-
-  // Ensure URL doesn't end with trailing slash
-  url = url.replace(/\/$/, '');
-
-  // Prompt for API key
-  const key = await promptInput('Enter your Firecrawl API key: ');
-
-  if (!key || key.trim().length === 0) {
-    console.error('Error: API key cannot be empty');
-    process.exit(1);
-  }
-
-  if (!url || url.trim().length === 0) {
-    console.error('Error: API URL cannot be empty');
-    process.exit(1);
-  }
-
-  // Normalize URL (remove trailing slash)
-  const normalizedUrl = url.trim().replace(/\/$/, '');
-
-  try {
-    saveCredentials({
-      apiKey: key.trim(),
-      apiUrl: normalizedUrl,
+export async function configure(options: ConfigureOptions = {}): Promise<void> {
+  // If not authenticated, trigger the login flow
+  if (!isAuthenticated() || options.apiKey || options.method) {
+    // Import handleLoginCommand to avoid circular dependency
+    const { handleLoginCommand } = await import('./login');
+    await handleLoginCommand({
+      apiKey: options.apiKey,
+      apiUrl: options.apiUrl,
+      webUrl: options.webUrl,
+      method: options.method,
     });
-    console.log('\n✓ Configuration saved successfully');
-    console.log(`  API URL: ${normalizedUrl}`);
-    console.log(`  Stored in: ${getConfigDirectoryPath()}`);
-
-    // Update global config
-    updateConfig({
-      apiKey: key.trim(),
-      apiUrl: normalizedUrl,
-    });
-  } catch (error) {
-    console.error(
-      'Error saving configuration:',
-      error instanceof Error ? error.message : 'Unknown error'
-    );
-    process.exit(1);
+    return;
   }
+
+  // Already authenticated - show config and offer to re-authenticate
+  await viewConfig();
+  console.log(
+    'To re-authenticate, run: firecrawl logout && firecrawl config\n'
+  );
+}
+
+/**
+ * View current configuration (read-only)
+ */
+export async function viewConfig(): Promise<void> {
+  const credentials = loadCredentials();
+  const config = getConfig();
+
+  console.log('\n┌─────────────────────────────────────────┐');
+  console.log('│          Firecrawl Configuration        │');
+  console.log('└─────────────────────────────────────────┘\n');
+
+  if (isAuthenticated()) {
+    const maskedKey = credentials?.apiKey
+      ? `${credentials.apiKey.substring(0, 6)}...${credentials.apiKey.slice(-4)}`
+      : 'Not set';
+
+    console.log('Status: ✓ Authenticated\n');
+    console.log(`API Key:  ${maskedKey}`);
+    console.log(`API URL:  ${config.apiUrl || 'https://api.firecrawl.dev'}`);
+    console.log(`Config:   ${getConfigDirectoryPath()}`);
+    console.log('\nCommands:');
+    console.log('  firecrawl logout       Clear credentials');
+    console.log('  firecrawl config       Re-authenticate');
+  } else {
+    console.log('Status: Not authenticated\n');
+    console.log('Run any command to start authentication, or use:');
+    console.log('  firecrawl config    Authenticate with browser or API key');
+  }
+  console.log('');
 }

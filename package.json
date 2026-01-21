@@ -1,6 +1,6 @@
 {
   "name": "firecrawl-cli",
-  "version": "0.0.6",
+  "version": "1.0.1-beta.1",
   "description": "Command-line interface for Firecrawl. Scrape, crawl, and extract data from any website directly from your terminal.",
   "main": "dist/index.js",
   "bin": {
@@ -10,6 +10,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
+    "local": "node dist/index.js",
     "clean": "rm -rf dist",
     "prepublishOnly": "pnpm run build",
     "prepare": "husky",
@@ -17,7 +18,8 @@
     "format:check": "prettier --check \"src/**/*.{ts,json}\" \"*.{json,md}\"",
     "type-check": "tsc --noEmit",
     "test:watch": "vitest",
-    "test": "vitest run"
+    "test": "vitest run",
+    "publish-beta": "npm publish --tag beta"
   },
   "lint-staged": {
     "*.{ts,json,md}": [
