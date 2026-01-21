@@ -7,20 +7,26 @@
 
 import { Command } from 'commander';
 import { handleScrapeCommand } from './commands/scrape';
-import { initializeConfig } from './utils/config';
+import { initializeConfig, updateConfig } from './utils/config';
 import { getClient } from './utils/client';
 import { configure } from './commands/config';
 import { handleCreditUsageCommand } from './commands/credit-usage';
 import { handleCrawlCommand } from './commands/crawl';
 import { handleMapCommand } from './commands/map';
 import { handleVersionCommand } from './commands/version';
+import { handleLoginCommand } from './commands/login';
+import { handleLogoutCommand } from './commands/logout';
 import { isUrl, normalizeUrl } from './utils/url';
 import { parseScrapeOptions } from './utils/options';
 import { isJobId } from './utils/job';
+import { ensureAuthenticated, printBanner } from './utils/auth';
 import packageJson from '../package.json';
 
 // Initialize global configuration from environment variables
 initializeConfig();
+
+// Commands that require authentication
+const AUTH_REQUIRED_COMMANDS = ['scrape', 'crawl', 'map', 'credit-usage'];
 
 const program = new Command();
 
@@ -30,14 +36,21 @@ program
   .version(packageJson.version)
   .option(
     '-k, --api-key <key>',
-    'Firecrawl API key (or set FIRECRAWL_API_KEY env var, or use "firecrawl config")'
+    'Firecrawl API key (or set FIRECRAWL_API_KEY env var)'
   )
   .allowUnknownOption() // Allow unknown options when URL is passed directly
-  .hook('preAction', (thisCommand, actionCommand) => {
+  .hook('preAction', async (thisCommand, actionCommand) => {
     // Update global config if API key is provided via global option
     const globalOptions = thisCommand.opts();
     if (globalOptions.apiKey) {
-      getClient({ apiKey: globalOptions.apiKey });
+      updateConfig({ apiKey: globalOptions.apiKey });
+    }
+
+    // Check if this command requires authentication
+    const commandName = actionCommand.name();
+    if (AUTH_REQUIRED_COMMANDS.includes(commandName)) {
+      // Ensure user is authenticated (prompts for login if needed)
+      await ensureAuthenticated();
     }
   });
 
@@ -272,9 +285,41 @@ program.addCommand(createMapCommand());
 
 program
   .command('config')
-  .description('Configure API URL and API key (interactive)')
+  .description('Show current configuration and authentication status')
   .action(async () => {
     await configure();
+  });
+
+program
+  .command('login')
+  .description('Login to Firecrawl (browser or manual API key)')
+  .option(
+    '-k, --api-key <key>',
+    'Provide API key directly (skips interactive flow)'
+  )
+  .option('--api-url <url>', 'API URL (default: https://api.firecrawl.dev)')
+  .option(
+    '--web-url <url>',
+    'Web URL for browser login (default: https://firecrawl.dev)'
+  )
+  .option(
+    '-m, --method <method>',
+    'Login method: "browser" or "manual" (default: interactive prompt)'
+  )
+  .action(async (options) => {
+    await handleLoginCommand({
+      apiKey: options.apiKey,
+      apiUrl: options.apiUrl,
+      webUrl: options.webUrl,
+      method: options.method,
+    });
+  });
+
+program
+  .command('logout')
+  .description('Logout and clear stored credentials')
+  .action(async () => {
+    await handleLogoutCommand();
   });
 
 program
@@ -305,30 +350,55 @@ program
 // Parse arguments
 const args = process.argv.slice(2);
 
-// Check if first argument is a URL (and not a command)
-if (args.length > 0 && !args[0].startsWith('-') && isUrl(args[0])) {
-  // Treat as scrape command with URL - reuse commander's parsing
-  const url = normalizeUrl(args[0]);
+// Handle the main entry point
+async function main() {
+  // If no arguments or just help flags, check auth and show appropriate message
+  if (args.length === 0) {
+    const { isAuthenticated } = await import('./utils/auth');
 
-  // Modify argv to include scrape command with URL as positional argument
-  // This allows commander to parse it normally with all hooks and options
-  const modifiedArgv = [
-    process.argv[0],
-    process.argv[1],
-    'scrape',
-    url,
-    ...args.slice(1),
-  ];
+    if (!isAuthenticated()) {
+      // Not authenticated - prompt for login (banner is shown by ensureAuthenticated)
+      await ensureAuthenticated();
 
-  // Parse using the main program (which includes hooks and global options)
-  program.parseAsync(modifiedArgv).catch((error) => {
-    console.error(
-      'Error:',
-      error instanceof Error ? error.message : 'Unknown error'
-    );
-    process.exit(1);
-  });
-} else {
-  // Normal command parsing
-  program.parse();
+      console.log("You're all set! Try scraping a URL:\n");
+      console.log('  firecrawl https://example.com\n');
+      console.log('For more commands, run: firecrawl --help\n');
+      return;
+    }
+
+    // Authenticated - show banner and help
+    printBanner();
+    program.outputHelp();
+    return;
+  }
+
+  // Check if first argument is a URL (and not a command)
+  if (!args[0].startsWith('-') && isUrl(args[0])) {
+    // Treat as scrape command with URL - reuse commander's parsing
+    const url = normalizeUrl(args[0]);
+
+    // Modify argv to include scrape command with URL as positional argument
+    // This allows commander to parse it normally with all hooks and options
+    const modifiedArgv = [
+      process.argv[0],
+      process.argv[1],
+      'scrape',
+      url,
+      ...args.slice(1),
+    ];
+
+    // Parse using the main program (which includes hooks and global options)
+    await program.parseAsync(modifiedArgv);
+  } else {
+    // Normal command parsing
+    await program.parseAsync();
+  }
 }
+
+main().catch((error) => {
+  console.error(
+    'Error:',
+    error instanceof Error ? error.message : 'Unknown error'
+  );
+  process.exit(1);
+});
