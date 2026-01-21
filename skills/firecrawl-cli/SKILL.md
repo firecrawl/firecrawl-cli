@@ -35,6 +35,22 @@ This will prompt you to authenticate either via browser or manually by pasting y
 
 You should defer to the user to authenticate in the cli. Don't use any other tools as fallback, just use the firecrawl cli and have the user authenticate it.
 
+## Installation error handling
+
+If ANY command returns an authentication error (e.g., "not authenticated", "unauthorized", "API key"), immediately use the AskUserQuestion tool if available- do NOT run firecrawl credit-usage:
+
+question: "How would you like to authenticate with Firecrawl?"
+header: "Auth method"
+options:
+Label: "Login with browser (Recommended)", Description: "Opens your browser to authenticate with Firecrawl"
+Label: "Enter API key manually", Description: "Paste an existing API key from firecrawl.dev"
+If user selects browser login: Tell them to run firecrawl config in their terminal and select option 1. Wait for them to confirm, then retry the original command.
+
+If user selects manual API key: Ask for their API key, then run:
+
+export FIRECRAWL_API_KEY="<their-key>"
+Tell them to add this export to ~/.zshrc or ~/.bashrc for persistence, then retry the original command.
+
 ## Organization
 
 Create a `.firecrawl/` folder in the working directory unless it already exists to store results unless a user specifies to return in context. Always use `-o` to write directly to file (avoids flooding context):

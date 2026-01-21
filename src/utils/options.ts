@@ -87,6 +87,7 @@ export function parseScrapeOptions(options: any): ScrapeOptions {
     apiKey: options.apiKey,
     output: options.output,
     pretty: options.pretty,
+    json: options.json,
     timing: options.timing,
   };
 }

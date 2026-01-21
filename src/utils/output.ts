@@ -7,6 +7,21 @@ import * as path from 'path';
 import type { ScrapeResult, ScrapeFormat } from '../types/scrape';
 
 /**
+ * Determine if output should be JSON based on flag or file extension
+ */
+function shouldOutputJson(outputPath?: string, jsonFlag?: boolean): boolean {
+  // Explicit --json flag takes precedence
+  if (jsonFlag) return true;
+
+  // Infer from .json extension
+  if (outputPath && outputPath.toLowerCase().endsWith('.json')) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Text formats that can be output as raw content (curl-like)
  */
 const RAW_TEXT_FORMATS: ScrapeFormat[] = [
@@ -150,6 +165,7 @@ export function writeOutput(
  * Handle scrape result output
  *
  * Output behavior:
+ * - If --json flag or .json output file: always JSON output
  * - Single text format (html, markdown, links, images, summary, rawHtml): raw content
  * - Single complex format (screenshot, json, branding, etc.): JSON output
  * - Multiple formats: JSON with all requested data
@@ -158,7 +174,8 @@ export function handleScrapeOutput(
   result: ScrapeResult,
   formats: ScrapeFormat[],
   outputPath?: string,
-  pretty: boolean = false
+  pretty: boolean = false,
+  json: boolean = false
 ): void {
   if (!result.success) {
     // Always use stderr for errors to allow piping
@@ -167,6 +184,26 @@ export function handleScrapeOutput(
   }
 
   if (!result.data) {
+    return;
+  }
+
+  // Determine if we should force JSON output
+  const forceJson = shouldOutputJson(outputPath, json);
+
+  // If JSON is forced, always output JSON regardless of format
+  if (forceJson) {
+    let jsonContent: string;
+    try {
+      jsonContent = pretty
+        ? JSON.stringify(result.data, null, 2)
+        : JSON.stringify(result.data);
+    } catch (error) {
+      jsonContent = JSON.stringify({
+        error: 'Failed to serialize response',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+    writeOutput(jsonContent, outputPath, !!outputPath);
     return;
   }
 

@@ -138,5 +138,11 @@ export async function handleScrapeCommand(
     effectiveFormats.push('screenshot');
   }
 
-  handleScrapeOutput(result, effectiveFormats, options.output, options.pretty);
+  handleScrapeOutput(
+    result,
+    effectiveFormats,
+    options.output,
+    options.pretty,
+    options.json
+  );
 }

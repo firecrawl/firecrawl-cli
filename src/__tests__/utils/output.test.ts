@@ -353,5 +353,125 @@ describe('Output Utilities', () => {
       expect(parsed.metadata).toBeDefined();
       expect(parsed.metadata.title).toBe('Test Page');
     });
+
+    it('should output JSON when --json flag is true even for single text format', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      handleScrapeOutput(
+        {
+          success: true,
+          data: { markdown: '# Test Content' },
+        },
+        ['markdown'],
+        undefined,
+        false,
+        true // json flag
+      );
+
+      const output = stdoutWriteSpy.mock.calls[0][0];
+      const parsed = JSON.parse(output);
+      expect(parsed.markdown).toBe('# Test Content');
+    });
+
+    it('should output JSON when --json flag is true for screenshot format', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      handleScrapeOutput(
+        {
+          success: true,
+          data: {
+            screenshot: 'https://example.com/screenshot.png',
+            metadata: {
+              title: 'Test Page',
+              sourceURL: 'https://example.com',
+            },
+          },
+        },
+        ['screenshot'],
+        undefined,
+        false,
+        true // json flag
+      );
+
+      const output = stdoutWriteSpy.mock.calls[0][0];
+      const parsed = JSON.parse(output);
+      expect(parsed.screenshot).toBe('https://example.com/screenshot.png');
+      expect(parsed.metadata.title).toBe('Test Page');
+    });
+
+    it('should infer JSON output when output file has .json extension', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      handleScrapeOutput(
+        {
+          success: true,
+          data: {
+            screenshot: 'https://example.com/screenshot.png',
+            metadata: {
+              title: 'Test Page',
+            },
+          },
+        },
+        ['screenshot'],
+        '/output/result.json', // .json extension
+        false,
+        false // no explicit json flag
+      );
+
+      // Should write JSON to file
+      expect(fs.writeFileSync).toHaveBeenCalled();
+      const content = (fs.writeFileSync as any).mock.calls[0][1];
+      const parsed = JSON.parse(content);
+      expect(parsed.screenshot).toBe('https://example.com/screenshot.png');
+    });
+
+    it('should NOT infer JSON for non-.json extensions', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      handleScrapeOutput(
+        {
+          success: true,
+          data: {
+            screenshot: 'https://example.com/screenshot.png',
+            metadata: {
+              title: 'Test Page',
+              sourceURL: 'https://example.com',
+            },
+          },
+        },
+        ['screenshot'],
+        '/output/result.md', // .md extension
+        false,
+        false // no explicit json flag
+      );
+
+      // Should write formatted text, not JSON
+      expect(fs.writeFileSync).toHaveBeenCalled();
+      const content = (fs.writeFileSync as any).mock.calls[0][1];
+      expect(content).toContain(
+        'Screenshot: https://example.com/screenshot.png'
+      );
+      expect(() => JSON.parse(content)).toThrow(); // Not valid JSON
+    });
+
+    it('should output pretty JSON when both json and pretty flags are true', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      handleScrapeOutput(
+        {
+          success: true,
+          data: { markdown: '# Test' },
+        },
+        ['markdown'],
+        undefined,
+        true, // pretty flag
+        true // json flag
+      );
+
+      const output = stdoutWriteSpy.mock.calls[0][0];
+      expect(output).toContain('\n'); // Pretty print has newlines
+      const parsed = JSON.parse(output);
+      expect(parsed.markdown).toBe('# Test');
+    });
   });
 });

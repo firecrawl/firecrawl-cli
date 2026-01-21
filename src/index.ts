@@ -97,6 +97,7 @@ function createScrapeCommand(): Command {
       'Firecrawl API key (overrides global --api-key)'
     )
     .option('-o, --output <path>', 'Output file path (default: stdout)')
+    .option('--json', 'Output as JSON format', false)
     .option('--pretty', 'Pretty print JSON output', false)
     .option(
       '--timing',
