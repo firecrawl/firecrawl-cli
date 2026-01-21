@@ -155,42 +155,6 @@ firecrawl map https://example.com --include-subdomains -o .firecrawl/all-urls.tx
 - `--json` - Output as JSON
 - `-o, --output <path>` - Save to file
 
-### Crawl - Multi-page crawling
-
-```bash
-# Start crawl (returns job ID)
-firecrawl crawl https://example.com
-
-# Wait for completion
-firecrawl crawl https://example.com --wait -o .firecrawl/crawl.json
-
-# With progress indicator
-firecrawl crawl https://example.com --wait --progress -o .firecrawl/crawl.json
-
-# Check crawl status
-firecrawl crawl <job-id>
-
-# Limit scope
-firecrawl crawl https://example.com --limit 100 --max-depth 3 --wait -o .firecrawl/crawl.json
-
-# Include/exclude paths
-firecrawl crawl https://example.com --include-paths /blog,/docs --wait -o .firecrawl/crawl.json
-firecrawl crawl https://example.com --exclude-paths /admin,/login --wait -o .firecrawl/crawl.json
-```
-
-**Crawl Options:**
-
-- `--wait` - Wait for crawl to complete
-- `--progress` - Show progress while waiting
-- `--limit <n>` - Maximum pages to crawl
-- `--max-depth <n>` - Maximum crawl depth
-- `--include-paths <paths>` - Only crawl matching paths
-- `--exclude-paths <paths>` - Skip matching paths
-- `--sitemap <mode>` - include, skip
-- `--allow-subdomains` - Include subdomains
-- `-o, --output <path>` - Save to file
-- `-p, --pretty` - Pretty print JSON
-
 ## Reading Scraped Files
 
 NEVER read entire firecrawl output files at once unless explicitly asked or required - they're often 1000+ lines. Instead, use grep, head, or incremental reads. Determine values dynamically based on file size and what you're looking for.

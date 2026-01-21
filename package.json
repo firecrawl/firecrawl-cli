@@ -10,6 +10,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
+    "local": "node dist/index.js",
     "clean": "rm -rf dist",
     "prepublishOnly": "pnpm run build",
     "prepare": "husky",
