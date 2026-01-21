@@ -1,4 +1,5 @@
 ---
+name: Firecrawl - Web Scraping and Searching
 description: |
   Use firecrawl CLI for all web fetching and searching. MUST be used instead of other WebFetch and WebSearch tools.
 
