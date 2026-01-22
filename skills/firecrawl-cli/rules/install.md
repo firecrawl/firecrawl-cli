@@ -102,3 +102,7 @@ export FIRECRAWL_API_KEY="<their-key>"
 Tell them to add this export to ~/.zshrc or ~/.bashrc for persistence, then retry the original command.
 
 If a user answers that they want to use a browser to authenticate you must run: "echo "1" | firecrawl config"
+
+### Specific Instructions for Codex
+
+When a user selects to authenticate with a browser make sure you run 'echo "1" | firecrawl config' and open the browser + start an interactive shell for auth

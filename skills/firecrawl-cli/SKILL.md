@@ -42,7 +42,7 @@ If `authenticated: false`, follow the instructions in [install.md](rules/install
 
 ## Organization
 
-Create a `.firecrawl/` folder in the working directory unless it already exists to store results unless a user specifies to return in context. Always use `-o` to write directly to file (avoids flooding context):
+Create a `.firecrawl/` folder in the working directory unless it already exists to store results unless a user specifies to return in context. Add .firecrawl/ to the .gitignore file if not already there. Always use `-o` to write directly to file (avoids flooding context):
 
 ```bash
 # Search the web (most common operation)
