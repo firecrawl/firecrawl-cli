@@ -530,8 +530,9 @@ program
 program
   .command('version')
   .description('Display version information')
-  .action(() => {
-    handleVersionCommand();
+  .option('--auth-status', 'Also show authentication status', false)
+  .action((options) => {
+    handleVersionCommand({ authStatus: options.authStatus });
   });
 
 // Parse arguments
@@ -539,6 +540,18 @@ const args = process.argv.slice(2);
 
 // Handle the main entry point
 async function main() {
+  // Handle --version with --auth-status before Commander processes it
+  // Commander's built-in --version handler doesn't support additional flags
+  const hasVersion = args.includes('--version') || args.includes('-V');
+  const hasAuthStatus = args.includes('--auth-status');
+
+  if (hasVersion && hasAuthStatus) {
+    const { isAuthenticated } = await import('./utils/auth');
+    console.log(`version: ${packageJson.version}`);
+    console.log(`authenticated: ${isAuthenticated()}`);
+    return;
+  }
+
   // If no arguments or just help flags, check auth and show appropriate message
   if (args.length === 0) {
     const { isAuthenticated } = await import('./utils/auth');

@@ -9,7 +9,7 @@ description: |
 ## Quick Install
 
 ```bash
-npm install -g firecrawl-cli@beta
+npm install -g firecrawl-cli
 ```
 
 ## Verify Installation
@@ -67,8 +67,8 @@ Tell them to add this export to `~/.zshrc` or `~/.bashrc` for persistence, then 
 If `firecrawl` command is not found after installation:
 
 1. Make sure npm global bin is in PATH
-2. Try: `npx firecrawl-cli@beta --version`
-3. Or reinstall: `npm install -g firecrawl-cli@beta`
+2. Try: `npx firecrawl-cli --version`
+3. Or reinstall: `npm install -g firecrawl-cli`
 
 ### Permission errors
 
@@ -76,7 +76,7 @@ If you get permission errors during installation:
 
 ```bash
 # Option 1: Use sudo (not recommended)
-sudo npm install -g firecrawl-cli@beta
+sudo npm install -g firecrawl-cli
 
 # Option 2: Fix npm permissions (recommended)
 mkdir ~/.npm-global

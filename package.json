@@ -1,6 +1,6 @@
 {
   "name": "firecrawl-cli",
-  "version": "1.0.1-beta.3",
+  "version": "1.0.2",
   "description": "Command-line interface for Firecrawl. Scrape, crawl, and extract data from any website directly from your terminal.",
   "main": "dist/index.js",
   "bin": {
@@ -19,7 +19,8 @@
     "type-check": "tsc --noEmit",
     "test:watch": "vitest",
     "test": "vitest run",
-    "publish-beta": "npm publish --tag beta"
+    "publish-beta": "npm publish --tag beta",
+    "publish-prod": "npm publish --access public"
   },
   "lint-staged": {
     "*.{ts,json,md}": [
