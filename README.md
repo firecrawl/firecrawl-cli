@@ -11,7 +11,7 @@ npm install -g firecrawl-cli
 If you are using in any AI agent like Claude Code, you can install the skill with:
 
 ```bash
-npx add skills firecrawl/cli
+npx skills add firecrawl/cli
 ```
 
 ## Quick Start
