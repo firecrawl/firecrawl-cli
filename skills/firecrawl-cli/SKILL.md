@@ -48,6 +48,16 @@ If not installed: `npm install -g firecrawl-cli`
 
 Always refer to the installation rules in [rules/install.md](rules/install.md) for more information if the user is not logged in.
 
+## Authentication
+
+If not authenticated, run:
+
+```bash
+firecrawl login
+```
+
+This will prompt to authenticate either via browser or manually with an API key. Always select the browser login method automatically (1). And don't tell them to run the commands themselves, unless you fail to do so. Just use the tool and have it prompt the user to authenticate.
+
 ## Organization
 
 Create a `.firecrawl/` folder in the working directory unless it already exists to store results unless a user specifies to return in context. Add .firecrawl/ to the .gitignore file if not already there. Always use `-o` to write directly to file (avoids flooding context):
