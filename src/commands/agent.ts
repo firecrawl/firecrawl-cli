@@ -18,8 +18,17 @@ import { readFileSync } from 'fs';
  */
 function extractErrorMessage(error: unknown): string {
   if (error instanceof Error) {
-    // Check for response data in the error (common in axios/fetch errors)
     const anyError = error as any;
+
+    // Handle Firecrawl SDK errors with details array
+    if (anyError.details && Array.isArray(anyError.details)) {
+      const messages = anyError.details
+        .map((d: any) => d.message || JSON.stringify(d))
+        .join('; ');
+      return messages || error.message;
+    }
+
+    // Check for response data in the error (common in axios/fetch errors)
     if (anyError.response?.data?.error) {
       return anyError.response.data.error;
     }
@@ -29,10 +38,7 @@ function extractErrorMessage(error: unknown): string {
     if (anyError.response?.data) {
       return JSON.stringify(anyError.response.data);
     }
-    // Check for cause
-    if (anyError.cause) {
-      return `${error.message}: ${JSON.stringify(anyError.cause)}`;
-    }
+
     return error.message;
   }
   return 'Unknown error occurred';
