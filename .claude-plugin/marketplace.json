@@ -1,0 +1,14 @@
+{
+  "name": "firecrawl",
+  "owner": {
+    "name": "Firecrawl"
+  },
+  "plugins": [
+    {
+      "name": "firecrawl",
+      "source": "./",
+      "description": "Scrape, search, crawl, and map the web with a single command.",
+      "skills": ["./skills/firecrawl-cli"]
+    }
+  ]
+}
