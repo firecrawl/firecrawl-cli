@@ -33,9 +33,6 @@ jobs:
         with:
           version: 10.12.1
 
-      - name: Update npm to latest version
-        run: npm install -g npm@latest
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -67,5 +64,5 @@ jobs:
 
       - name: Publish to npm
         if: steps.check-version.outputs.exists == 'false'
-        run: npm publish --access public --provenance --tag ${{ steps.check-version.outputs.tag }}
+        run: npm publish --tag ${{ steps.check-version.outputs.tag }}
         continue-on-error: false
