@@ -358,10 +358,15 @@ firecrawl credit-usage --json --pretty
 
 ---
 
-### `config` - View configuration
+### `config` - Configure and view settings
 
 ```bash
+# View current configuration
 firecrawl config
+
+# Configure with custom API URL
+firecrawl config --api-url https://firecrawl.mycompany.com
+firecrawl config --api-url http://localhost:3002 --api-key fc-xxx
 ```
 
 Shows authentication status and stored credentials location.
@@ -376,6 +381,10 @@ firecrawl login
 firecrawl login --method browser
 firecrawl login --method manual
 firecrawl login --api-key fc-xxx
+
+# Login to self-hosted instance
+firecrawl login --api-url https://firecrawl.mycompany.com
+firecrawl login --api-url http://localhost:3002 --api-key fc-xxx
 
 # Logout
 firecrawl logout
