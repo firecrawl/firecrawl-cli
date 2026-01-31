@@ -87,6 +87,7 @@ export async function executeAgent(
       prompt: string;
       urls?: string[];
       schema?: Record<string, unknown>;
+      model?: string;
       maxCredits?: number;
       pollInterval?: number;
       timeout?: number;
@@ -99,6 +100,9 @@ export async function executeAgent(
     }
     if (schema) {
       agentParams.schema = schema;
+    }
+    if (options.model) {
+      agentParams.model = options.model;
     }
     if (options.maxCredits !== undefined) {
       agentParams.maxCredits = options.maxCredits;

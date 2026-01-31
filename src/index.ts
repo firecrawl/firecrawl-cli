@@ -474,6 +474,10 @@ function createAgentCommand(): Command {
     )
     .option('--urls <urls>', 'Comma-separated URLs to focus extraction on')
     .option(
+      '--model <model>',
+      'Model to use: fire-1 (default) or fire-1-mini (faster, cheaper)'
+    )
+    .option(
       '--schema <json>',
       'JSON schema for structured output (inline JSON string)'
     )
@@ -540,6 +544,7 @@ function createAgentCommand(): Command {
         urls,
         schema,
         schemaFile: options.schemaFile,
+        model: options.model,
         maxCredits: options.maxCredits,
         status: isStatusCheck,
         wait: options.wait,
