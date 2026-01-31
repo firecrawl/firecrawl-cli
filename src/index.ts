@@ -506,7 +506,6 @@ function createAgentCommand(): Command {
       'Timeout in seconds when waiting (default: no timeout)',
       parseFloat
     )
-    .option('--progress', 'Show progress while waiting', false)
     .option(
       '-k, --api-key <key>',
       'Firecrawl API key (overrides global --api-key)'
@@ -550,7 +549,6 @@ function createAgentCommand(): Command {
         wait: options.wait,
         pollInterval: options.pollInterval,
         timeout: options.timeout,
-        progress: options.progress,
         apiKey: options.apiKey,
         apiUrl: options.apiUrl,
         output: options.output,

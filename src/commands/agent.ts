@@ -10,6 +10,7 @@ import type {
 import { getClient } from '../utils/client';
 import { isJobId } from '../utils/job';
 import { writeOutput } from '../utils/output';
+import { createSpinner } from '../utils/spinner';
 import { readFileSync } from 'fs';
 
 /**
@@ -108,84 +109,74 @@ export async function executeAgent(
       agentParams.maxCredits = options.maxCredits;
     }
 
-    // If wait mode, use the convenience agent method with polling
+    // If wait mode, use polling with spinner
     if (wait) {
-      // Set polling options
-      if (pollInterval !== undefined) {
-        agentParams.pollInterval = pollInterval * 1000; // Convert to milliseconds
-      } else {
-        agentParams.pollInterval = 5000; // Default: 5 seconds
-      }
-      if (timeout !== undefined) {
-        agentParams.timeout = timeout * 1000; // Convert to milliseconds
-      }
+      const spinner = createSpinner('Starting agent...');
+      spinner.start();
 
-      // Show progress if requested - use custom polling for better UX
-      if (options.progress) {
-        // Start agent first
-        const response = await app.startAgent(agentParams);
-        const jobId = response.id;
+      // Start agent first
+      const response = await app.startAgent(agentParams);
+      const jobId = response.id;
 
-        process.stderr.write(`Starting agent...\n`);
-        process.stderr.write(`Job ID: ${jobId}\n`);
+      spinner.update(`Agent running... (Job ID: ${jobId})`);
 
-        // Poll for status with progress updates
-        const pollMs = agentParams.pollInterval || 5000;
-        const startTime = Date.now();
-        const timeoutMs = timeout ? timeout * 1000 : undefined;
+      // Poll for status
+      const pollMs = pollInterval ? pollInterval * 1000 : 5000;
+      const startTime = Date.now();
+      const timeoutMs = timeout ? timeout * 1000 : undefined;
 
-        while (true) {
-          await new Promise((resolve) => setTimeout(resolve, pollMs));
+      while (true) {
+        await new Promise((resolve) => setTimeout(resolve, pollMs));
 
-          const agentStatus = await app.getAgentStatus(jobId);
+        const agentStatus = await app.getAgentStatus(jobId);
 
-          // Show progress
-          process.stderr.write(`\rStatus: ${agentStatus.status}`);
-
-          if (
-            agentStatus.status === 'completed' ||
-            agentStatus.status === 'failed'
-          ) {
-            process.stderr.write('\n');
-            return {
-              success: agentStatus.success,
-              data: {
-                id: jobId,
-                status: agentStatus.status,
-                data: agentStatus.data,
-                creditsUsed: agentStatus.creditsUsed,
-                expiresAt: agentStatus.expiresAt,
-              },
-            };
-          }
-
-          // Check timeout
-          if (timeoutMs && Date.now() - startTime > timeoutMs) {
-            process.stderr.write('\n');
-            return {
-              success: false,
-              error: `Timeout after ${timeout} seconds. Agent still processing.`,
-            };
-          }
+        if (agentStatus.status === 'completed') {
+          spinner.succeed('Agent completed');
+          return {
+            success: agentStatus.success,
+            data: {
+              id: jobId,
+              status: agentStatus.status,
+              data: agentStatus.data,
+              creditsUsed: agentStatus.creditsUsed,
+              expiresAt: agentStatus.expiresAt,
+            },
+          };
         }
-      } else {
-        // Use SDK's built-in polling (no progress display)
-        const agentResponse = await app.agent(agentParams);
-        return {
-          success: agentResponse.success,
-          data: {
-            id: '',
-            status: agentResponse.status,
-            data: agentResponse.data,
-            creditsUsed: agentResponse.creditsUsed,
-            expiresAt: agentResponse.expiresAt,
-          },
-        };
+
+        if (agentStatus.status === 'failed') {
+          spinner.fail('Agent failed');
+          return {
+            success: false,
+            data: {
+              id: jobId,
+              status: agentStatus.status,
+              data: agentStatus.data,
+              creditsUsed: agentStatus.creditsUsed,
+              expiresAt: agentStatus.expiresAt,
+            },
+            error: agentStatus.error,
+          };
+        }
+
+        // Check timeout
+        if (timeoutMs && Date.now() - startTime > timeoutMs) {
+          spinner.fail(`Timeout after ${timeout}s (Job ID: ${jobId})`);
+          return {
+            success: false,
+            error: `Timeout after ${timeout} seconds. Agent still processing. Job ID: ${jobId}`,
+          };
+        }
       }
     }
 
     // Otherwise, start agent and return job ID
+    const spinner = createSpinner('Starting agent...');
+    spinner.start();
+
     const response = await app.startAgent(agentParams);
+
+    spinner.succeed(`Agent started (Job ID: ${response.id})`);
 
     return {
       success: response.success,

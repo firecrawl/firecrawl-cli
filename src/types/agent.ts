@@ -27,8 +27,6 @@ export interface AgentOptions {
   pollInterval?: number;
   /** Timeout in seconds when waiting */
   timeout?: number;
-  /** Show progress while waiting */
-  progress?: boolean;
   /** API key for Firecrawl */
   apiKey?: string;
   /** API URL for Firecrawl */
