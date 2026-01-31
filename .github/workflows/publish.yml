@@ -11,12 +11,13 @@ on:
     branches:
       - main
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     
     steps:
       - name: Checkout repository
@@ -64,5 +65,5 @@ jobs:
 
       - name: Publish to npm
         if: steps.check-version.outputs.exists == 'false'
-        run: npm publish --tag latest
+        run: npm publish --tag ${{ steps.check-version.outputs.tag }}
         continue-on-error: false
