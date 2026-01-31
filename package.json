@@ -41,10 +41,10 @@
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/firecrawl/firecrawl-cli.git"
+    "url": "git+https://github.com/firecrawl/cli.git"
   },
   "bugs": {
-    "url": "https://github.com/firecrawl/firecrawl-cli/issues"
+    "url": "https://github.com/firecrawl/cli/issues"
   },
   "homepage": "https://docs.firecrawl.dev/cli",
   "engines": {
