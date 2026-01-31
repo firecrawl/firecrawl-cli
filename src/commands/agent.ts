@@ -14,6 +14,31 @@ import { createSpinner } from '../utils/spinner';
 import { readFileSync } from 'fs';
 
 /**
+ * Extract detailed error message from API errors
+ */
+function extractErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    // Check for response data in the error (common in axios/fetch errors)
+    const anyError = error as any;
+    if (anyError.response?.data?.error) {
+      return anyError.response.data.error;
+    }
+    if (anyError.response?.data?.message) {
+      return anyError.response.data.message;
+    }
+    if (anyError.response?.data) {
+      return JSON.stringify(anyError.response.data);
+    }
+    // Check for cause
+    if (anyError.cause) {
+      return `${error.message}: ${JSON.stringify(anyError.cause)}`;
+    }
+    return error.message;
+  }
+  return 'Unknown error occurred';
+}
+
+/**
  * Load schema from file
  */
 function loadSchemaFromFile(filePath: string): Record<string, unknown> {
@@ -38,11 +63,11 @@ async function checkAgentStatus(
   jobId: string,
   options: AgentOptions
 ): Promise<AgentStatusResult> {
-  try {
-    const app = getClient({ apiKey: options.apiKey, apiUrl: options.apiUrl });
+  const app = getClient({ apiKey: options.apiKey, apiUrl: options.apiUrl });
 
-    // If not waiting, just return current status
-    if (!options.wait) {
+  // If not waiting, just return current status
+  if (!options.wait) {
+    try {
       const status = await app.getAgentStatus(jobId);
       return {
         success: status.success,
@@ -54,84 +79,87 @@ async function checkAgentStatus(
           expiresAt: status.expiresAt,
         },
       };
+    } catch (error) {
+      return {
+        success: false,
+        error: extractErrorMessage(error),
+      };
     }
+  }
 
-    // Wait mode: poll until completion
-    const spinner = createSpinner(`Checking agent status...`);
-    spinner.start();
+  // Wait mode: poll until completion
+  const spinner = createSpinner(`Checking agent status...`);
+  spinner.start();
 
-    // Handle Ctrl+C gracefully
-    const handleInterrupt = () => {
-      spinner.stop();
-      process.stderr.write('\n\nInterrupted. Agent may still be running.\n');
-      process.stderr.write(`Check status with: firecrawl agent ${jobId}\n\n`);
-      process.exit(0);
-    };
-    process.on('SIGINT', handleInterrupt);
+  // Handle Ctrl+C gracefully
+  const handleInterrupt = () => {
+    spinner.stop();
+    process.stderr.write('\n\nInterrupted. Agent may still be running.\n');
+    process.stderr.write(`Check status with: firecrawl agent ${jobId}\n\n`);
+    process.exit(0);
+  };
+  process.on('SIGINT', handleInterrupt);
 
-    const pollMs = options.pollInterval ? options.pollInterval * 1000 : 5000;
-    const startTime = Date.now();
-    const timeoutMs = options.timeout ? options.timeout * 1000 : undefined;
+  const pollMs = options.pollInterval ? options.pollInterval * 1000 : 5000;
+  const startTime = Date.now();
+  const timeoutMs = options.timeout ? options.timeout * 1000 : undefined;
 
-    try {
-      // Check initial status
-      let agentStatus = await app.getAgentStatus(jobId);
-      spinner.update(`Agent ${agentStatus.status}... (Job ID: ${jobId})`);
+  try {
+    // Check initial status
+    let agentStatus = await app.getAgentStatus(jobId);
+    spinner.update(`Agent ${agentStatus.status}... (Job ID: ${jobId})`);
 
-      while (true) {
-        if (agentStatus.status === 'completed') {
-          process.removeListener('SIGINT', handleInterrupt);
-          spinner.succeed('Agent completed');
-          return {
-            success: agentStatus.success,
-            data: {
-              id: jobId,
-              status: agentStatus.status,
-              data: agentStatus.data,
-              creditsUsed: agentStatus.creditsUsed,
-              expiresAt: agentStatus.expiresAt,
-            },
-          };
-        }
-
-        if (agentStatus.status === 'failed') {
-          process.removeListener('SIGINT', handleInterrupt);
-          spinner.fail('Agent failed');
-          return {
-            success: false,
-            data: {
-              id: jobId,
-              status: agentStatus.status,
-              data: agentStatus.data,
-              creditsUsed: agentStatus.creditsUsed,
-              expiresAt: agentStatus.expiresAt,
-            },
-            error: agentStatus.error,
-          };
-        }
-
-        // Check timeout
-        if (timeoutMs && Date.now() - startTime > timeoutMs) {
-          process.removeListener('SIGINT', handleInterrupt);
-          spinner.fail(`Timeout after ${options.timeout}s`);
-          return {
-            success: false,
-            error: `Timeout after ${options.timeout} seconds. Agent still processing.`,
-          };
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, pollMs));
-        agentStatus = await app.getAgentStatus(jobId);
-        spinner.update(`Agent ${agentStatus.status}... (Job ID: ${jobId})`);
+    while (true) {
+      if (agentStatus.status === 'completed') {
+        spinner.succeed('Agent completed');
+        return {
+          success: agentStatus.success,
+          data: {
+            id: jobId,
+            status: agentStatus.status,
+            data: agentStatus.data,
+            creditsUsed: agentStatus.creditsUsed,
+            expiresAt: agentStatus.expiresAt,
+          },
+        };
       }
-    } finally {
-      process.removeListener('SIGINT', handleInterrupt);
+
+      if (agentStatus.status === 'failed') {
+        spinner.fail('Agent failed');
+        return {
+          success: false,
+          data: {
+            id: jobId,
+            status: agentStatus.status,
+            data: agentStatus.data,
+            creditsUsed: agentStatus.creditsUsed,
+            expiresAt: agentStatus.expiresAt,
+          },
+          error: agentStatus.error,
+        };
+      }
+
+      // Check timeout
+      if (timeoutMs && Date.now() - startTime > timeoutMs) {
+        spinner.fail(`Timeout after ${options.timeout}s`);
+        return {
+          success: false,
+          error: `Timeout after ${options.timeout} seconds. Agent still processing.`,
+        };
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, pollMs));
+      agentStatus = await app.getAgentStatus(jobId);
+      spinner.update(`Agent ${agentStatus.status}... (Job ID: ${jobId})`);
     }
   } catch (error) {
+    spinner.fail('Failed to check agent status');
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      error: extractErrorMessage(error),
     };
+  } finally {
+    process.removeListener('SIGINT', handleInterrupt);
   }
 }
 
@@ -190,7 +218,16 @@ export async function executeAgent(
       spinner.start();
 
       // Start agent first
-      const response = await app.startAgent(agentParams);
+      let response;
+      try {
+        response = await app.startAgent(agentParams);
+      } catch (error) {
+        spinner.fail('Failed to start agent');
+        return {
+          success: false,
+          error: extractErrorMessage(error),
+        };
+      }
       const jobId = response.id;
 
       // Handle Ctrl+C gracefully
@@ -265,7 +302,16 @@ export async function executeAgent(
     const spinner = createSpinner('Starting agent...');
     spinner.start();
 
-    const response = await app.startAgent(agentParams);
+    let response;
+    try {
+      response = await app.startAgent(agentParams);
+    } catch (error) {
+      spinner.fail('Failed to start agent');
+      return {
+        success: false,
+        error: extractErrorMessage(error),
+      };
+    }
 
     spinner.succeed(`Agent started (Job ID: ${response.id})`);
 
@@ -279,7 +325,7 @@ export async function executeAgent(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      error: extractErrorMessage(error),
     };
   }
 }
