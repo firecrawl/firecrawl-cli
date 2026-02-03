@@ -3,6 +3,8 @@
  * Displays CLI version, auth status, concurrency, and credits
  */
 
+import { promises as fs } from 'fs';
+import path from 'path';
 import packageJson from '../../package.json';
 import { isAuthenticated } from '../utils/auth';
 import { getConfig, validateConfig } from '../utils/config';
@@ -42,6 +44,13 @@ interface StatusResult {
     plan: number;
   };
   error?: string;
+}
+
+interface LocalStatus {
+  gitignoreExists: boolean;
+  gitignoreHasFirecrawl: boolean;
+  firecrawlDirExists: boolean;
+  firecrawlFileCount: number;
 }
 
 /**
@@ -166,6 +175,70 @@ function formatNumber(num: number): string {
 }
 
 /**
+ * Check local repo status for .gitignore and .firecrawl
+ */
+async function getLocalStatus(cwd: string): Promise<LocalStatus> {
+  const gitignorePath = path.join(cwd, '.gitignore');
+  let gitignoreExists = false;
+  let gitignoreHasFirecrawl = false;
+
+  try {
+    const content = await fs.readFile(gitignorePath, 'utf8');
+    gitignoreExists = true;
+    const lines = content.split(/\r?\n/);
+    gitignoreHasFirecrawl = lines.some((line) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) {
+        return false;
+      }
+      return /^\/?\.firecrawl(?:\/|$)/.test(trimmed);
+    });
+  } catch {
+    gitignoreExists = false;
+  }
+
+  const firecrawlDir = path.join(cwd, '.firecrawl');
+  let firecrawlDirExists = false;
+  let firecrawlFileCount = 0;
+
+  async function countFiles(dir: string): Promise<number> {
+    let count = 0;
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name === 'scratchpad') {
+        continue;
+      }
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        count += await countFiles(fullPath);
+      } else if (entry.isFile()) {
+        if (!entry.name.startsWith('.')) {
+          count += 1;
+        }
+      }
+    }
+    return count;
+  }
+
+  try {
+    const stat = await fs.stat(firecrawlDir);
+    if (stat.isDirectory()) {
+      firecrawlDirExists = true;
+      firecrawlFileCount = await countFiles(firecrawlDir);
+    }
+  } catch {
+    firecrawlDirExists = false;
+  }
+
+  return {
+    gitignoreExists,
+    gitignoreHasFirecrawl,
+    firecrawlDirExists,
+    firecrawlFileCount,
+  };
+}
+
+/**
  * Handle status command output
  */
 export async function handleStatusCommand(): Promise<void> {
@@ -177,6 +250,7 @@ export async function handleStatusCommand(): Promise<void> {
   const red = '\x1b[31m';
 
   const status = await getStatus();
+  const localStatus = await getLocalStatus(process.cwd());
 
   // Header
   console.log('');
@@ -198,6 +272,26 @@ export async function handleStatusCommand(): Promise<void> {
     console.log(`  ${red}●${reset} Not authenticated`);
     console.log(`  ${dim}Run 'firecrawl login' to authenticate${reset}`);
     console.log('');
+    if (localStatus.firecrawlDirExists) {
+      console.log(
+        `  ${dim}.firecrawl:${reset} present ${dim}- ${formatNumber(localStatus.firecrawlFileCount)} sites${reset}`
+      );
+    } else {
+      console.log(
+        `  ${dim}.firecrawl:${reset} not found ${dim}- no local cache${reset}`
+      );
+    }
+    if (localStatus.gitignoreExists) {
+      const ignoredLabel = localStatus.gitignoreHasFirecrawl ? 'yes' : 'no';
+      console.log(
+        `  ${dim}.gitignore:${reset} present ${dim}- .firecrawl ignored: ${ignoredLabel}${reset}`
+      );
+    } else {
+      console.log(
+        `  ${dim}.gitignore:${reset} missing ${dim}- add .firecrawl/ to ignore cache${reset}`
+      );
+    }
+    console.log('');
     return;
   }
 
@@ -206,6 +300,26 @@ export async function handleStatusCommand(): Promise<void> {
     console.log(
       `  ${dim}Could not fetch account info: ${status.error}${reset}`
     );
+    console.log('');
+    if (localStatus.firecrawlDirExists) {
+      console.log(
+        `  ${dim}.firecrawl:${reset} present ${dim}- ${formatNumber(localStatus.firecrawlFileCount)} sites${reset}`
+      );
+    } else {
+      console.log(
+        `  ${dim}.firecrawl:${reset} not found ${dim}- no local cache${reset}`
+      );
+    }
+    if (localStatus.gitignoreExists) {
+      const ignoredLabel = localStatus.gitignoreHasFirecrawl ? 'yes' : 'no';
+      console.log(
+        `  ${dim}.gitignore:${reset} present ${dim}- .firecrawl ignored: ${ignoredLabel}${reset}`
+      );
+    } else {
+      console.log(
+        `  ${dim}.gitignore:${reset} missing ${dim}- add .firecrawl/ to ignore cache${reset}`
+      );
+    }
     console.log('');
     return;
   }
@@ -231,6 +345,26 @@ export async function handleStatusCommand(): Promise<void> {
         `  ${dim}Credits:${reset} ${formatNumber(remaining)} ${dim}(pay-as-you-go)${reset}`
       );
     }
+  }
+
+  if (localStatus.firecrawlDirExists) {
+    console.log(
+      `  ${dim}.firecrawl:${reset} present ${dim}- ${formatNumber(localStatus.firecrawlFileCount)} sites${reset}`
+    );
+  } else {
+    console.log(
+      `  ${dim}.firecrawl:${reset} not found ${dim}- no local cache${reset}`
+    );
+  }
+  if (localStatus.gitignoreExists) {
+    const ignoredLabel = localStatus.gitignoreHasFirecrawl ? 'yes' : 'no';
+    console.log(
+      `  ${dim}.gitignore:${reset} present ${dim}- .firecrawl ignored: ${ignoredLabel}${reset}`
+    );
+  } else {
+    console.log(
+      `  ${dim}.gitignore:${reset} missing ${dim}- add .firecrawl/ to ignore cache${reset}`
+    );
   }
 
   console.log('');
