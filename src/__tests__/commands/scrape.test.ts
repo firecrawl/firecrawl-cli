@@ -248,6 +248,64 @@ describe('executeScrape', () => {
         maxAge: 3600,
       });
     });
+
+    it('should include location parameter with country and languages', async () => {
+      const mockResponse = { markdown: '# Test' };
+      mockClient.scrape.mockResolvedValue(mockResponse);
+
+      await executeScrape({
+        url: 'https://example.com',
+        location: { country: 'US', languages: ['en'] },
+      });
+
+      expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
+        formats: ['markdown'],
+        location: { country: 'US', languages: ['en'] },
+      });
+    });
+
+    it('should include location parameter with only country', async () => {
+      const mockResponse = { markdown: '# Test' };
+      mockClient.scrape.mockResolvedValue(mockResponse);
+
+      await executeScrape({
+        url: 'https://example.com',
+        location: { country: 'DE' },
+      });
+
+      expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
+        formats: ['markdown'],
+        location: { country: 'DE' },
+      });
+    });
+
+    it('should include location parameter with only languages', async () => {
+      const mockResponse = { markdown: '# Test' };
+      mockClient.scrape.mockResolvedValue(mockResponse);
+
+      await executeScrape({
+        url: 'https://example.com',
+        location: { languages: ['en', 'es'] },
+      });
+
+      expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
+        formats: ['markdown'],
+        location: { languages: ['en', 'es'] },
+      });
+    });
+
+    it('should not include location parameter when not provided', async () => {
+      const mockResponse = { markdown: '# Test' };
+      mockClient.scrape.mockResolvedValue(mockResponse);
+
+      await executeScrape({
+        url: 'https://example.com',
+      });
+
+      expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
+        formats: ['markdown'],
+      });
+    });
   });
 
   describe('Response handling', () => {

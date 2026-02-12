@@ -2,7 +2,11 @@
  * Option parsing utilities
  */
 
-import type { ScrapeOptions, ScrapeFormat } from '../types/scrape';
+import type {
+  ScrapeOptions,
+  ScrapeFormat,
+  ScrapeLocation,
+} from '../types/scrape';
 
 /**
  * Valid scrape format values
@@ -72,6 +76,20 @@ export function parseScrapeOptions(options: any): ScrapeOptions {
     formats = parseFormats(options.format);
   }
 
+  // Build location object if country or languages are provided
+  let location: ScrapeLocation | undefined;
+  if (options.country || options.languages) {
+    location = {};
+    if (options.country) {
+      location.country = options.country;
+    }
+    if (options.languages) {
+      location.languages = options.languages
+        .split(',')
+        .map((l: string) => l.trim());
+    }
+  }
+
   return {
     url: options.url,
     formats,
@@ -91,5 +109,6 @@ export function parseScrapeOptions(options: any): ScrapeOptions {
     json: options.json,
     timing: options.timing,
     maxAge: options.maxAge,
+    location,
   };
 }

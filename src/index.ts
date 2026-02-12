@@ -126,6 +126,14 @@ function createScrapeCommand(): Command {
       'Maximum age of cached content in milliseconds',
       parseInt
     )
+    .option(
+      '--country <code>',
+      'ISO country code for geo-targeted scraping (e.g., US, DE, BR)'
+    )
+    .option(
+      '--languages <codes>',
+      'Comma-separated language codes for scraping (e.g., en,es)'
+    )
     .action(async (positionalUrl, positionalFormats, options) => {
       // Use positional URL if provided, otherwise use --url option
       const url = positionalUrl || options.url;
