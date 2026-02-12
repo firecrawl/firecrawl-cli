@@ -347,5 +347,69 @@ describe('Option Parsing Utilities', () => {
         timing: true,
       });
     });
+
+    it('should parse location with country and languages', () => {
+      const options = {
+        url: 'https://example.com',
+        country: 'US',
+        languages: 'en,es',
+      };
+
+      const result = parseScrapeOptions(options);
+
+      expect(result.location).toEqual({
+        country: 'US',
+        languages: ['en', 'es'],
+      });
+    });
+
+    it('should parse location with only country', () => {
+      const options = {
+        url: 'https://example.com',
+        country: 'DE',
+      };
+
+      const result = parseScrapeOptions(options);
+
+      expect(result.location).toEqual({
+        country: 'DE',
+      });
+    });
+
+    it('should parse location with only languages', () => {
+      const options = {
+        url: 'https://example.com',
+        languages: 'en,fr,de',
+      };
+
+      const result = parseScrapeOptions(options);
+
+      expect(result.location).toEqual({
+        languages: ['en', 'fr', 'de'],
+      });
+    });
+
+    it('should not set location when neither country nor languages provided', () => {
+      const options = {
+        url: 'https://example.com',
+      };
+
+      const result = parseScrapeOptions(options);
+
+      expect(result.location).toBeUndefined();
+    });
+
+    it('should trim whitespace from language codes', () => {
+      const options = {
+        url: 'https://example.com',
+        languages: ' en , es , fr ',
+      };
+
+      const result = parseScrapeOptions(options);
+
+      expect(result.location).toEqual({
+        languages: ['en', 'es', 'fr'],
+      });
+    });
   });
 });

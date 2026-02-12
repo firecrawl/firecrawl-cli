@@ -7,6 +7,7 @@ import type {
   ScrapeOptions,
   ScrapeResult,
   ScrapeFormat,
+  ScrapeLocation,
 } from '../types/scrape';
 import { getClient } from '../utils/client';
 import { handleScrapeOutput } from '../utils/output';
@@ -77,6 +78,7 @@ export async function executeScrape(
     includeTags?: string[];
     excludeTags?: string[];
     maxAge?: number;
+    location?: ScrapeLocation;
   } = {
     formats,
   };
@@ -99,6 +101,10 @@ export async function executeScrape(
 
   if (options.maxAge !== undefined) {
     scrapeParams.maxAge = options.maxAge;
+  }
+
+  if (options.location) {
+    scrapeParams.location = options.location;
   }
 
   // Execute scrape with timing - only wrap the scrape call in try-catch

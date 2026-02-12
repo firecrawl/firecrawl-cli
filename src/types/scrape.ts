@@ -15,6 +15,13 @@ export type ScrapeFormat =
   | 'attributes'
   | 'branding';
 
+export interface ScrapeLocation {
+  /** ISO 3166-1 alpha-2 country code (e.g., 'US', 'DE', 'BR') */
+  country?: string;
+  /** List of language codes (e.g., ['en', 'es']) */
+  languages?: string[];
+}
+
 export interface ScrapeOptions {
   /** URL to scrape */
   url: string;
@@ -44,6 +51,8 @@ export interface ScrapeOptions {
   timing?: boolean;
   /** Maximum age of cached content in milliseconds (API-level caching) */
   maxAge?: number;
+  /** Location settings for geo-targeted scraping */
+  location?: ScrapeLocation;
 }
 
 export interface ScrapeResult {
