@@ -15,6 +15,12 @@ import { handleCrawlCommand } from './commands/crawl';
 import { handleMapCommand } from './commands/map';
 import { handleSearchCommand } from './commands/search';
 import { handleAgentCommand } from './commands/agent';
+import {
+  handleBrowserLaunch,
+  handleBrowserExecute,
+  handleBrowserList,
+  handleBrowserClose,
+} from './commands/browser';
 import { handleVersionCommand } from './commands/version';
 import { handleLoginCommand } from './commands/login';
 import { handleLogoutCommand } from './commands/logout';
@@ -37,6 +43,7 @@ const AUTH_REQUIRED_COMMANDS = [
   'map',
   'search',
   'agent',
+  'browser',
   'credit-usage',
 ];
 
@@ -580,11 +587,226 @@ function createAgentCommand(): Command {
   return agentCmd;
 }
 
-// Add crawl, map, search, and agent commands to main program
+/**
+ * Create and configure the browser command
+ */
+function createBrowserCommand(): Command {
+  const browserCmd = new Command('browser')
+    .description('Manage cloud browser sessions')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ firecrawl browser launch                    # Start a session
+  $ firecrawl browser execute 'print(await page.title())'
+  $ firecrawl browser close
+
+Quick Start:
+  $ firecrawl browser launch --stream
+  $ firecrawl browser execute 'await page.goto("https://example.com"); print(await page.title())'
+  $ firecrawl browser close
+`
+    );
+
+  browserCmd
+    .command('launch')
+    .description('Launch a new cloud browser session')
+    .option(
+      '--ttl <seconds>',
+      'Total session TTL in seconds (default: 300)',
+      parseInt
+    )
+    .option('--ttl-inactivity <seconds>', 'Inactivity TTL in seconds', parseInt)
+    .option('--stream', 'Enable live view streaming', false)
+    .option(
+      '-k, --api-key <key>',
+      'Firecrawl API key (overrides global --api-key)'
+    )
+    .option('--api-url <url>', 'API URL (overrides global --api-url)')
+    .option('-o, --output <path>', 'Output file path (default: stdout)')
+    .option('--json', 'Output as JSON format', false)
+    .option('--pretty', 'Pretty print JSON output', false)
+    .addHelpText(
+      'after',
+      `
+Output:
+  Prints the Session ID and CDP URL. The session is auto-saved so
+  subsequent execute/close commands target it automatically.
+
+Examples:
+  $ firecrawl browser launch
+  $ firecrawl browser launch --stream --ttl 600
+  $ firecrawl browser launch --ttl 300 --ttl-inactivity 60
+  $ firecrawl browser launch -o session.json --json --pretty
+`
+    )
+    .action(async (options) => {
+      await handleBrowserLaunch({
+        ttl: options.ttl,
+        ttlInactivity: options.ttlInactivity,
+        stream: options.stream,
+        apiKey: options.apiKey,
+        apiUrl: options.apiUrl,
+        output: options.output,
+        json: options.json,
+        pretty: options.pretty,
+      });
+    });
+
+  browserCmd
+    .command('execute')
+    .description('Execute code in a browser session')
+    .argument('<code>', 'Code to execute (Playwright async code)')
+    .option('--python', 'Execute as Python (default)', false)
+    .option('--js', 'Execute as JavaScript', false)
+    .option(
+      '--bash',
+      'Execute as local bash command (sets CDP_URL and SESSION_ID env vars)',
+      false
+    )
+    .option(
+      '--session <id>',
+      'Session ID (default: active session from last launch)'
+    )
+    .option(
+      '-k, --api-key <key>',
+      'Firecrawl API key (overrides global --api-key)'
+    )
+    .option('--api-url <url>', 'API URL (overrides global --api-url)')
+    .option('-o, --output <path>', 'Output file path (default: stdout)')
+    .option('--json', 'Output as JSON format', false)
+    .option('--pretty', 'Pretty print JSON output', false)
+    .addHelpText(
+      'after',
+      `
+How it works:
+  Code runs server-side in a sandbox with Playwright pre-configured.
+  A "page" object is already available — no imports or CDP connection needed.
+  Use "await" for all Playwright calls. Use "print()" (Python) or the last
+  expression value (JS) to return output.
+
+  IMPORTANT: Do NOT import playwright or connect to CDP in your code.
+  The page object is already set up for you.
+
+Python examples (default):
+  $ firecrawl browser execute 'await page.goto("https://example.com")'
+  $ firecrawl browser execute 'print(await page.title())'
+  $ firecrawl browser execute '
+    await page.goto("https://news.ycombinator.com")
+    title = await page.title()
+    items = await page.query_selector_all(".titleline > a")
+    for item in items[:5]:
+        print(await item.inner_text())
+  '
+
+JavaScript examples:
+  $ firecrawl browser execute --js 'await page.goto("https://example.com"); await page.title()'
+
+Bash examples (runs locally, CDP_URL env var set):
+  $ firecrawl browser execute --bash 'agent-browser snapshot'
+  $ firecrawl browser execute --bash 'echo $CDP_URL'
+
+Target a specific session:
+  $ firecrawl browser execute --session <id> 'print(await page.title())'
+
+Note: --python, --js, and --bash are mutually exclusive.
+`
+    )
+    .action(async (code, options) => {
+      const flagCount = [options.python, options.js, options.bash].filter(
+        Boolean
+      ).length;
+      if (flagCount > 1) {
+        console.error(
+          'Error: Only one of --python, --js, or --bash can be specified'
+        );
+        process.exit(1);
+      }
+      const language = options.bash ? 'bash' : options.js ? 'js' : 'python';
+      await handleBrowserExecute({
+        code,
+        language,
+        session: options.session,
+        apiKey: options.apiKey,
+        apiUrl: options.apiUrl,
+        output: options.output,
+        json: options.json,
+        pretty: options.pretty,
+      });
+    });
+
+  browserCmd
+    .command('list')
+    .description('List active browser sessions')
+    .option(
+      '-k, --api-key <key>',
+      'Firecrawl API key (overrides global --api-key)'
+    )
+    .option('--api-url <url>', 'API URL (overrides global --api-url)')
+    .option('-o, --output <path>', 'Output file path (default: stdout)')
+    .option('--json', 'Output as JSON format', false)
+    .option('--pretty', 'Pretty print JSON output', false)
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ firecrawl browser list
+  $ firecrawl browser list --json --pretty
+`
+    )
+    .action(async (options) => {
+      await handleBrowserList({
+        apiKey: options.apiKey,
+        apiUrl: options.apiUrl,
+        output: options.output,
+        json: options.json,
+        pretty: options.pretty,
+      });
+    });
+
+  browserCmd
+    .command('close')
+    .description('Close a browser session')
+    .option(
+      '--session <id>',
+      'Session ID (default: active session from last launch)'
+    )
+    .option(
+      '-k, --api-key <key>',
+      'Firecrawl API key (overrides global --api-key)'
+    )
+    .option('--api-url <url>', 'API URL (overrides global --api-url)')
+    .option('-o, --output <path>', 'Output file path (default: stdout)')
+    .option('--json', 'Output as JSON format', false)
+    .option('--pretty', 'Pretty print JSON output', false)
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ firecrawl browser close
+  $ firecrawl browser close --session <id>
+`
+    )
+    .action(async (options) => {
+      await handleBrowserClose({
+        session: options.session,
+        apiKey: options.apiKey,
+        apiUrl: options.apiUrl,
+        output: options.output,
+        json: options.json,
+        pretty: options.pretty,
+      });
+    });
+
+  return browserCmd;
+}
+
+// Add crawl, map, search, agent, and browser commands to main program
 program.addCommand(createCrawlCommand());
 program.addCommand(createMapCommand());
 program.addCommand(createSearchCommand());
 program.addCommand(createAgentCommand());
+program.addCommand(createBrowserCommand());
 
 program
   .command('config')

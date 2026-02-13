@@ -426,6 +426,65 @@ firecrawl agent abc123-def456-... --wait --poll-interval 10
 
 ---
 
+### `browser` - Cloud browser sessions (Beta)
+
+Launch and control cloud browser sessions. Execute Python (Playwright) code remotely — `page`, `browser`, and `context` are pre-configured. Use `print()` to return output.
+
+```bash
+# 1. Launch a session
+firecrawl browser launch --stream
+
+# 2. Execute Python remotely
+firecrawl browser execute "await page.goto('https://example.com'); print(await page.title())"
+
+# 3. List sessions
+firecrawl browser list
+
+# 4. Close
+firecrawl browser close
+```
+
+#### Launch Options
+
+| Option                       | Description                                 |
+| ---------------------------- | ------------------------------------------- |
+| `--ttl <seconds>`            | Total session TTL in seconds (default: 300) |
+| `--ttl-inactivity <seconds>` | Inactivity TTL in seconds                   |
+| `--stream`                   | Enable live view streaming                  |
+| `-o, --output <path>`        | Save output to file                         |
+| `--json`                     | Output as JSON format                       |
+| `--pretty`                   | Pretty print JSON output                    |
+
+#### Execute Options
+
+| Option                | Description                                      |
+| --------------------- | ------------------------------------------------ |
+| `--session <id>`      | Target a specific session (auto-saved on launch) |
+| `-o, --output <path>` | Save output to file                              |
+| `--json`              | Output as JSON format                            |
+| `--pretty`            | Pretty print JSON output                         |
+
+#### Examples
+
+```bash
+# Navigate and extract
+firecrawl browser execute "await page.goto('https://example.com'); print(await page.title())"
+
+# Snapshot interactive elements
+firecrawl browser execute "print(await page.locator('body').aria_snapshot())"
+
+# Fill a form
+firecrawl browser execute "await page.get_by_role('textbox', name='Search').fill('firecrawl')"
+
+# Launch with extended TTL
+firecrawl browser launch --ttl 900 --ttl-inactivity 120
+
+# JSON output
+firecrawl browser execute --json "print(await page.title())"
+```
+
+---
+
 ### `config` - Configure and view settings
 
 ```bash

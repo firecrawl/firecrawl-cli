@@ -210,6 +210,53 @@ firecrawl map https://example.com --include-subdomains -o .firecrawl/all-urls.tx
 - `--json` - Output as JSON
 - `-o, --output <path>` - Save to file
 
+### Browser - Cloud browser sessions
+
+Launch remote Chromium sessions with full Playwright control. Sessions persist across commands -- after `launch`, subsequent `execute` calls reuse the last session automatically.
+
+```bash
+# Launch a session (saves connection details)
+firecrawl browser launch -o .firecrawl/browser-session.json --json
+
+# Launch with custom TTL and live view streaming
+firecrawl browser launch --ttl 600 --stream -o .firecrawl/browser-session.json --json
+
+# Execute Python code against the session (default)
+firecrawl browser execute 'await page.goto("https://example.com")
+print(await page.title())' -o .firecrawl/browser-result.txt
+
+# Execute JavaScript instead
+firecrawl browser execute --js 'await page.goto("https://example.com"); console.log(await page.title());' -o .firecrawl/browser-result.txt
+
+# Execute against a specific session
+firecrawl browser execute --session <id> 'print(await page.title())' -o .firecrawl/browser-result.txt
+
+# List active sessions
+firecrawl browser list --json -o .firecrawl/browser-sessions.json
+
+# Close last session
+firecrawl browser close
+
+# Close a specific session
+firecrawl browser close --session <id>
+```
+
+**Browser Options:**
+
+- `--ttl <seconds>` - Total session lifetime (default: 300, range: 30-3600)
+- `--ttl-inactivity <seconds>` - Auto-close after inactivity (range: 10-3600)
+- `--stream` - Enable live view streaming
+- `--python` - Execute as Python (default)
+- `--js` - Execute as JavaScript
+- `--session <id>` - Target specific session (default: last launched session)
+- `-o, --output <path>` - Save to file
+
+**Notes:**
+
+- Session auto-saves after `launch` -- no need to pass `--session` for subsequent commands
+- Code receives a pre-configured `page`, `browser`, and `context` objects (no setup needed)
+- Use `print()` to return output from Python execution
+
 ## Reading Scraped Files
 
 NEVER read entire firecrawl output files at once unless explicitly asked or required - they're often 1000+ lines. Instead, use grep, head, or incremental reads. Determine values dynamically based on file size and what you're looking for.
