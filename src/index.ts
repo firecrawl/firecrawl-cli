@@ -598,24 +598,22 @@ function createBrowserCommand(): Command {
     .addHelpText(
       'after',
       `
-        Overview:
-          Each session runs a full Chromium instance in the cloud — no local browser
-          or driver install needed. Code runs server-side with a pre-configured
-          Playwright "page" object ready to use. Supports Python (default), JavaScript,
-          and bash (for agent-browser / CDP tools).
+Examples:
+  $ firecrawl browser launch
+  $ firecrawl browser execute 'print(await page.title())'
+  $ firecrawl browser execute --bash "agent-browser snapshot"
+  $ firecrawl browser list active
+  $ firecrawl browser close
 
-        Quick Start:
-          $ firecrawl browser launch
-          $ firecrawl browser execute 'await page.goto("https://example.com"); print(await page.title())'
-          $ firecrawl browser close
+agent-browser (pre-installed in every sandbox):
+  Use --bash to run agent-browser commands instead of writing Playwright code.
+  $ firecrawl browser execute --bash "agent-browser open https://example.com"
+  $ firecrawl browser execute --bash "agent-browser snapshot"
+  $ firecrawl browser execute --bash "agent-browser click @e5"
+  $ firecrawl browser execute --bash "agent-browser scrape"
 
-        Examples:
-          $ firecrawl browser launch --stream            # Launch with live view
-          $ firecrawl browser execute 'print(await page.title())'  # Playwright Python
-          $ firecrawl browser execute --js 'await page.title()'    # Playwright JS
-          $ firecrawl browser execute --bash "agent-browser snapshot"  # bash + CDP
-          $ firecrawl browser list                       # List active sessions
-          $ firecrawl browser close                      # Close active session
+  See all agent-browser commands:
+  $ firecrawl browser execute --bash "agent-browser --help"
 `
     );
 
@@ -665,7 +663,7 @@ Examples:
   browserCmd
     .command('execute')
     .description(
-      'Execute Playwright Python/JS code or bash commands in a browser session'
+      'Execute Playwright Python/JS or bash with agent-browser in a session'
     )
     .argument(
       '<code>',
@@ -675,7 +673,7 @@ Examples:
     .option('--js', 'Execute as Playwright JavaScript code', false)
     .option(
       '--bash',
-      'Execute as local bash command (CDP_URL and SESSION_ID env vars injected, auto-injects --cdp for agent-browser)',
+      'Execute bash in the sandbox (agent-browser pre-installed, CDP_URL auto-injected)',
       false
     )
     .option(
@@ -715,9 +713,9 @@ Python examples (default):
 JavaScript examples:
   $ firecrawl browser execute --js 'await page.goto("https://example.com"); await page.title()'
 
-Bash examples (runs locally, CDP_URL env var set):
+Bash examples (agent-browser pre-installed in sandbox):
   $ firecrawl browser execute --bash 'agent-browser snapshot'
-  $ firecrawl browser execute --bash 'echo $CDP_URL'
+  $ firecrawl browser execute --bash 'agent-browser open https://example.com'
 
 Target a specific session:
   $ firecrawl browser execute --session <id> 'print(await page.title())'
