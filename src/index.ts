@@ -748,14 +748,15 @@ Note: --python, --js, and --bash are mutually exclusive.
     });
 
   browserCmd
-    .command('list')
-    .description('List browser sessions')
+    .command('list [status]')
+    .description(
+      'List browser sessions (optionally filter by: active, destroyed)'
+    )
     .option(
       '-k, --api-key <key>',
       'Firecrawl API key (overrides global --api-key)'
     )
     .option('--api-url <url>', 'API URL (overrides global --api-url)')
-    .option('--status <status>', 'Filter by status (active, destroyed)')
     .option('-o, --output <path>', 'Output file path (default: stdout)')
     .option('--json', 'Output as JSON format', false)
     .addHelpText(
@@ -763,13 +764,20 @@ Note: --python, --js, and --bash are mutually exclusive.
       `
 Examples:
   $ firecrawl browser list
-  $ firecrawl browser list --status active
+  $ firecrawl browser list active
+  $ firecrawl browser list destroyed
   $ firecrawl browser list --json
 `
     )
-    .action(async (options) => {
+    .action(async (status, options) => {
+      if (status && !['active', 'destroyed'].includes(status)) {
+        console.error(
+          `Error: Invalid status "${status}". Use "active" or "destroyed".`
+        );
+        process.exit(1);
+      }
       await handleBrowserList({
-        status: options.status,
+        status,
         apiKey: options.apiKey,
         apiUrl: options.apiUrl,
         output: options.output,

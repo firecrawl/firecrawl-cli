@@ -231,8 +231,11 @@ firecrawl browser execute --js 'await page.goto("https://example.com"); console.
 # Execute against a specific session
 firecrawl browser execute --session <id> 'print(await page.title())' -o .firecrawl/browser-result.txt
 
-# List active sessions
+# List all sessions
 firecrawl browser list --json -o .firecrawl/browser-sessions.json
+
+# List only active sessions
+firecrawl browser list active --json -o .firecrawl/browser-sessions.json
 
 # Close last session
 firecrawl browser close
