@@ -51,9 +51,7 @@ const program = new Command();
 
 program
   .name('firecrawl')
-  .description(
-    'Firecrawl CLI — scrape, crawl, search, and automate the web. Returns clean markdown, HTML, screenshots, and structured data.'
-  )
+  .description('CLI tool for Firecrawl web scraping')
   .version(packageJson.version)
   .option(
     '-k, --api-key <key>',
@@ -92,9 +90,7 @@ program
  */
 function createScrapeCommand(): Command {
   const scrapeCmd = new Command('scrape')
-    .description(
-      'Scrape a single URL — returns markdown (default), HTML, links, screenshots, or structured JSON'
-    )
+    .description('Scrape a URL using Firecrawl')
     .argument('[url]', 'URL to scrape')
     .argument(
       '[formats...]',
@@ -181,9 +177,7 @@ program.addCommand(createScrapeCommand());
  */
 function createCrawlCommand(): Command {
   const crawlCmd = new Command('crawl')
-    .description(
-      'Crawl an entire website — follows links and returns content for every page'
-    )
+    .description('Crawl a website using Firecrawl')
     .argument('[url-or-job-id]', 'URL to crawl or job ID to check status')
     .option(
       '-u, --url <url>',
@@ -290,9 +284,7 @@ function createCrawlCommand(): Command {
  */
 function createMapCommand(): Command {
   const mapCmd = new Command('map')
-    .description(
-      'Discover all URLs on a website quickly — returns a list of URLs without scraping content'
-    )
+    .description('Map URLs on a website using Firecrawl')
     .argument('[url]', 'URL to map')
     .option(
       '-u, --url <url>',
@@ -354,9 +346,7 @@ function createMapCommand(): Command {
  */
 function createSearchCommand(): Command {
   const searchCmd = new Command('search')
-    .description(
-      'Search the web — returns ranked results with titles, URLs, and optionally scraped content'
-    )
+    .description('Search the web using Firecrawl')
     .argument('<query>', 'Search query')
     .option(
       '--limit <number>',
@@ -493,9 +483,7 @@ function createSearchCommand(): Command {
  */
 function createAgentCommand(): Command {
   const agentCmd = new Command('agent')
-    .description(
-      'AI agent — give a natural language prompt and it autonomously searches, scrapes, and returns structured data'
-    )
+    .description('Run an AI agent to extract data from the web')
     .argument(
       '<prompt-or-job-id>',
       'Natural language prompt describing data to extract, or job ID to check status'
@@ -610,24 +598,24 @@ function createBrowserCommand(): Command {
     .addHelpText(
       'after',
       `
-Overview:
-  Each session runs a full Chromium instance in the cloud — no local browser
-  or driver install needed. Code runs server-side with a pre-configured
-  Playwright "page" object ready to use. Supports Python (default), JavaScript,
-  and bash (for agent-browser / CDP tools).
+        Overview:
+          Each session runs a full Chromium instance in the cloud — no local browser
+          or driver install needed. Code runs server-side with a pre-configured
+          Playwright "page" object ready to use. Supports Python (default), JavaScript,
+          and bash (for agent-browser / CDP tools).
 
-Quick Start:
-  $ firecrawl browser launch
-  $ firecrawl browser execute 'await page.goto("https://example.com"); print(await page.title())'
-  $ firecrawl browser close
+        Quick Start:
+          $ firecrawl browser launch
+          $ firecrawl browser execute 'await page.goto("https://example.com"); print(await page.title())'
+          $ firecrawl browser close
 
-Examples:
-  $ firecrawl browser launch --stream            # Launch with live view
-  $ firecrawl browser execute 'print(await page.title())'  # Playwright Python
-  $ firecrawl browser execute --js 'await page.title()'    # Playwright JS
-  $ firecrawl browser execute --bash "agent-browser snapshot"  # bash + CDP
-  $ firecrawl browser list                       # List active sessions
-  $ firecrawl browser close                      # Close active session
+        Examples:
+          $ firecrawl browser launch --stream            # Launch with live view
+          $ firecrawl browser execute 'print(await page.title())'  # Playwright Python
+          $ firecrawl browser execute --js 'await page.title()'    # Playwright JS
+          $ firecrawl browser execute --bash "agent-browser snapshot"  # bash + CDP
+          $ firecrawl browser list                       # List active sessions
+          $ firecrawl browser close                      # Close active session
 `
     );
 
