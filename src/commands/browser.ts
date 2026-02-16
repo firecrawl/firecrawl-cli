@@ -21,7 +21,6 @@ export interface BrowserLaunchOptions {
   apiUrl?: string;
   output?: string;
   json?: boolean;
-  pretty?: boolean;
 }
 
 export interface BrowserExecuteOptions {
@@ -32,15 +31,14 @@ export interface BrowserExecuteOptions {
   apiUrl?: string;
   output?: string;
   json?: boolean;
-  pretty?: boolean;
 }
 
 export interface BrowserListOptions {
+  status?: 'active' | 'destroyed';
   apiKey?: string;
   apiUrl?: string;
   output?: string;
   json?: boolean;
-  pretty?: boolean;
 }
 
 export interface BrowserCloseOptions {
@@ -49,7 +47,6 @@ export interface BrowserCloseOptions {
   apiUrl?: string;
   output?: string;
   json?: boolean;
-  pretty?: boolean;
 }
 
 /**
@@ -85,19 +82,15 @@ export async function handleBrowserLaunch(
       createdAt: new Date().toISOString(),
     });
 
-    if (options.json || options.pretty) {
-      const output = options.pretty
-        ? JSON.stringify(data, null, 2)
-        : JSON.stringify(data);
+    if (options.json) {
+      const output = JSON.stringify(data, null, 2);
       writeOutput(output, options.output, !!options.output);
     } else {
       const lines: string[] = [];
       lines.push(`Session ID:    ${data.id}`);
       lines.push(`CDP URL:       ${data.cdpUrl}`);
-      if ((data as unknown as Record<string, unknown>).liveViewUrl) {
-        lines.push(
-          `Live View URL: ${(data as unknown as Record<string, unknown>).liveViewUrl}`
-        );
+      if (data.liveViewUrl) {
+        lines.push(`Live View URL: ${data.liveViewUrl}`);
       }
       writeOutput(lines.join('\n'), options.output, !!options.output);
     }
@@ -193,15 +186,13 @@ export async function handleBrowserExecute(
         process.exit(1);
       }
 
-      if (options.json || options.pretty) {
+      if (options.json) {
         const data = {
           success: true,
           result: result.stdout.trimEnd(),
           exitCode: result.exitCode,
         };
-        const output = options.pretty
-          ? JSON.stringify(data, null, 2)
-          : JSON.stringify(data);
+        const output = JSON.stringify(data, null, 2);
         writeOutput(output, options.output, !!options.output);
       } else {
         if (result.stdout) {
@@ -242,10 +233,8 @@ export async function handleBrowserExecute(
       process.stderr.write(`Code error: ${data.error}\n`);
     }
 
-    if (options.json || options.pretty) {
-      const output = options.pretty
-        ? JSON.stringify(data, null, 2)
-        : JSON.stringify(data);
+    if (options.json) {
+      const output = JSON.stringify(data, null, 2);
       writeOutput(output, options.output, !!options.output);
     } else {
       if (data.result !== undefined && data.result !== '') {
@@ -285,7 +274,9 @@ export async function handleBrowserList(
   try {
     const app = getClient({ apiKey: options.apiKey, apiUrl: options.apiUrl });
 
-    const data = await app.listBrowsers();
+    const data = await app.listBrowsers(
+      options.status ? { status: options.status } : undefined
+    );
 
     if (!data.success) {
       console.error('Error:', data.error || 'Unknown error');
@@ -294,10 +285,8 @@ export async function handleBrowserList(
 
     const sessions = data.sessions || [];
 
-    if (options.json || options.pretty) {
-      const output = options.pretty
-        ? JSON.stringify(data, null, 2)
-        : JSON.stringify(data);
+    if (options.json) {
+      const output = JSON.stringify(data, null, 2);
       writeOutput(output, options.output, !!options.output);
     } else {
       if (sessions.length === 0) {
@@ -351,10 +340,8 @@ export async function handleBrowserClose(
 
     console.log(`Session closed (${sessionId})`);
 
-    if (options.json || options.pretty) {
-      const output = options.pretty
-        ? JSON.stringify({ success: true, id: sessionId }, null, 2)
-        : JSON.stringify({ success: true, id: sessionId });
+    if (options.json) {
+      const output = JSON.stringify({ success: true, id: sessionId }, null, 2);
       writeOutput(output, options.output, !!options.output);
     }
   } catch (error) {

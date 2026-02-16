@@ -636,7 +636,6 @@ function createBrowserCommand(): Command {
     .option('--api-url <url>', 'API URL (overrides global --api-url)')
     .option('-o, --output <path>', 'Output file path (default: stdout)')
     .option('--json', 'Output as JSON format', false)
-    .option('--pretty', 'Pretty print JSON output', false)
     .addHelpText(
       'after',
       `
@@ -648,7 +647,7 @@ Examples:
   $ firecrawl browser launch
   $ firecrawl browser launch --stream --ttl 600
   $ firecrawl browser launch --ttl 300 --ttl-inactivity 60
-  $ firecrawl browser launch -o session.json --json --pretty
+  $ firecrawl browser launch -o session.json --json
 `
     )
     .action(async (options) => {
@@ -660,7 +659,6 @@ Examples:
         apiUrl: options.apiUrl,
         output: options.output,
         json: options.json,
-        pretty: options.pretty,
       });
     });
 
@@ -691,7 +689,6 @@ Examples:
     .option('--api-url <url>', 'API URL (overrides global --api-url)')
     .option('-o, --output <path>', 'Output file path (default: stdout)')
     .option('--json', 'Output as JSON format', false)
-    .option('--pretty', 'Pretty print JSON output', false)
     .addHelpText(
       'after',
       `
@@ -747,36 +744,36 @@ Note: --python, --js, and --bash are mutually exclusive.
         apiUrl: options.apiUrl,
         output: options.output,
         json: options.json,
-        pretty: options.pretty,
       });
     });
 
   browserCmd
     .command('list')
-    .description('List active browser sessions')
+    .description('List browser sessions')
     .option(
       '-k, --api-key <key>',
       'Firecrawl API key (overrides global --api-key)'
     )
     .option('--api-url <url>', 'API URL (overrides global --api-url)')
+    .option('--status <status>', 'Filter by status (active, destroyed)')
     .option('-o, --output <path>', 'Output file path (default: stdout)')
     .option('--json', 'Output as JSON format', false)
-    .option('--pretty', 'Pretty print JSON output', false)
     .addHelpText(
       'after',
       `
 Examples:
   $ firecrawl browser list
-  $ firecrawl browser list --json --pretty
+  $ firecrawl browser list --status active
+  $ firecrawl browser list --json
 `
     )
     .action(async (options) => {
       await handleBrowserList({
+        status: options.status,
         apiKey: options.apiKey,
         apiUrl: options.apiUrl,
         output: options.output,
         json: options.json,
-        pretty: options.pretty,
       });
     });
 
@@ -794,7 +791,6 @@ Examples:
     .option('--api-url <url>', 'API URL (overrides global --api-url)')
     .option('-o, --output <path>', 'Output file path (default: stdout)')
     .option('--json', 'Output as JSON format', false)
-    .option('--pretty', 'Pretty print JSON output', false)
     .addHelpText(
       'after',
       `
@@ -810,7 +806,6 @@ Examples:
         apiUrl: options.apiUrl,
         output: options.output,
         json: options.json,
-        pretty: options.pretty,
       });
     });
 
