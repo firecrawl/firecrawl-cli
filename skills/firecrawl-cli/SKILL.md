@@ -216,7 +216,7 @@ Launch remote Chromium sessions with a built-in sandbox. Sessions persist across
 
 #### Shorthand (Recommended)
 
-The simplest way to use browser. Auto-launches a session if needed, auto-prefixes agent-browser — no setup required:
+The simplest way to use browser. Auto-launches a session if needed, auto-prefixes agent-browser — no setup required. Browser output is typically short — keep it in context (no `-o` needed):
 
 ```bash
 firecrawl browser "open https://example.com"
@@ -231,8 +231,8 @@ firecrawl browser "scrape" -o .firecrawl/browser-scrape.md
 Explicit form with `execute` subcommand. Commands are still sent to agent-browser automatically:
 
 ```bash
-firecrawl browser execute "open https://example.com" -o .firecrawl/browser-result.txt
-firecrawl browser execute "snapshot" -o .firecrawl/browser-result.txt
+firecrawl browser execute "open https://example.com"
+firecrawl browser execute "snapshot"
 firecrawl browser execute "click @e5"
 firecrawl browser execute "scrape" -o .firecrawl/browser-scrape.md
 ```
@@ -244,13 +244,13 @@ Use `--python`, `--node`, or `--bash` for direct code execution (no agent-browse
 ```bash
 # Playwright Python
 firecrawl browser execute --python 'await page.goto("https://example.com")
-print(await page.title())' -o .firecrawl/browser-result.txt
+print(await page.title())'
 
 # Playwright JavaScript
-firecrawl browser execute --node 'await page.goto("https://example.com"); await page.title()' -o .firecrawl/browser-result.txt
+firecrawl browser execute --node 'await page.goto("https://example.com"); await page.title()'
 
 # Arbitrary bash in the sandbox
-firecrawl browser execute --bash 'ls /tmp' -o .firecrawl/browser-result.txt
+firecrawl browser execute --bash 'ls /tmp'
 
 # Explicit agent-browser via bash (equivalent to default mode)
 firecrawl browser execute --bash "agent-browser snapshot"
@@ -260,19 +260,19 @@ firecrawl browser execute --bash "agent-browser snapshot"
 
 ```bash
 # Launch a session explicitly (shorthand does this automatically)
-firecrawl browser launch-session -o .firecrawl/browser-session.json --json
+firecrawl browser launch-session
 
 # Launch with custom TTL and live view streaming
-firecrawl browser launch-session --ttl 600 --stream -o .firecrawl/browser-session.json --json
+firecrawl browser launch-session --ttl 600 --stream
 
 # Execute against a specific session
-firecrawl browser execute --session <id> "snapshot" -o .firecrawl/browser-result.txt
+firecrawl browser execute --session <id> "snapshot"
 
 # List all sessions
-firecrawl browser list --json -o .firecrawl/browser-sessions.json
+firecrawl browser list
 
 # List only active sessions
-firecrawl browser list active --json -o .firecrawl/browser-sessions.json
+firecrawl browser list active --json
 
 # Close last session
 firecrawl browser close
