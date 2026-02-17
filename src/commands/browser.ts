@@ -113,24 +113,14 @@ export async function handleBrowserLaunch(
 
 /**
  * Execute a bash command locally with CDP_URL and SESSION_ID env vars.
- * Auto-injects --cdp for agent-browser commands.
+ * agent-browser reads CDP_URL from the environment automatically.
  */
 export function executeBashLocally(
   command: string,
   session: { id: string; cdpUrl: string }
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve) => {
-    // Auto-inject --cdp for agent-browser commands
-    let finalCommand = command;
-    if (command.startsWith('agent-browser') && !command.includes('--cdp')) {
-      const parts = command.split(' ');
-      // Insert --cdp after "agent-browser <subcommand>"
-      const insertIdx = Math.min(2, parts.length);
-      parts.splice(insertIdx, 0, '--cdp', `'${session.cdpUrl}'`);
-      finalCommand = parts.join(' ');
-    }
-
-    const child = spawn('sh', ['-c', finalCommand], {
+    const child = spawn('sh', ['-c', command], {
       env: {
         ...process.env,
         CDP_URL: session.cdpUrl,
