@@ -1,0 +1,67 @@
+name: Sync to Claude Plugin
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'skills/**'
+      - '.claude-plugin/**'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout CLI repo
+        uses: actions/checkout@v4
+        with:
+          path: cli
+
+      - name: Checkout Plugin repo
+        uses: actions/checkout@v4
+        with:
+          repository: firecrawl/firecrawl-claude-plugin
+          token: ${{ secrets.PLUGIN_REPO_PAT }}
+          path: plugin
+
+      - name: Copy files
+        run: |
+          # Sync skill files
+          rm -rf plugin/skills/firecrawl-cli
+          cp -r cli/skills/firecrawl-cli plugin/skills/firecrawl-cli
+
+          # Sync plugin config
+          cp cli/.claude-plugin/plugin.json plugin/.claude-plugin/plugin.json
+          cp cli/.claude-plugin/marketplace.json plugin/.claude-plugin/marketplace.json
+
+      - name: Bump version
+        run: |
+          cd plugin
+          VERSION=$(jq -r '.version' .claude-plugin/plugin.json)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+          jq --arg v "$NEW_VERSION" '.version = $v' .claude-plugin/plugin.json > tmp.json
+          mv tmp.json .claude-plugin/plugin.json
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+
+      - name: Create PR
+        run: |
+          cd plugin
+          BRANCH="sync/cli-v${{ env.NEW_VERSION }}"
+          git checkout -b "$BRANCH"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to sync"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Sync from firecrawl/cli — v${{ env.NEW_VERSION }}"
+          git push origin "$BRANCH"
+          gh pr create \
+            --repo firecrawl/firecrawl-claude-plugin \
+            --title "Sync CLI changes → v${{ env.NEW_VERSION }}" \
+            --body "Automated sync from [firecrawl/cli](https://github.com/firecrawl/cli) main branch." \
+            --base main \
+            --head "$BRANCH"
+        env:
+          GH_TOKEN: ${{ secrets.PLUGIN_REPO_PAT }}
