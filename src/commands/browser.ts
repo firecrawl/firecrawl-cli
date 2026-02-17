@@ -49,6 +49,14 @@ export interface BrowserCloseOptions {
   json?: boolean;
 }
 
+export interface BrowserQuickExecuteOptions {
+  code: string;
+  apiKey?: string;
+  apiUrl?: string;
+  output?: string;
+  json?: boolean;
+}
+
 /**
  * Launch a new browser session
  */
@@ -342,6 +350,59 @@ export async function handleBrowserList(
     );
     process.exit(1);
   }
+}
+
+/**
+ * Shorthand: auto-launch a session if needed, then execute an agent-browser command.
+ * Enables `firecrawl browser "open example.com"` without a separate launch step.
+ */
+export async function handleBrowserQuickExecute(
+  options: BrowserQuickExecuteOptions
+): Promise<void> {
+  // Auto-launch if no active session
+  const existing = loadBrowserSession();
+  if (!existing) {
+    try {
+      const app = getClient({ apiKey: options.apiKey, apiUrl: options.apiUrl });
+      const data = await app.browser({});
+
+      if (!data.success) {
+        console.error('Error:', data.error || 'Failed to launch session');
+        process.exit(1);
+      }
+
+      saveBrowserSession({
+        id: data.id!,
+        cdpUrl: data.cdpUrl!,
+        createdAt: new Date().toISOString(),
+      });
+
+      // Print session info to stderr so it doesn't mix with command output
+      console.error(`Session launched: ${data.id}`);
+    } catch (error) {
+      console.error(
+        'Error:',
+        error instanceof Error ? error.message : 'Failed to launch session'
+      );
+      process.exit(1);
+    }
+  }
+
+  // Auto-prefix agent-browser if needed
+  let finalCode = options.code;
+  if (!finalCode.startsWith('agent-browser')) {
+    finalCode = `agent-browser ${finalCode}`;
+  }
+
+  // Execute via the standard handler
+  await handleBrowserExecute({
+    code: finalCode,
+    language: 'bash',
+    apiKey: options.apiKey,
+    apiUrl: options.apiUrl,
+    output: options.output,
+    json: options.json,
+  });
 }
 
 /**

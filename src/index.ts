@@ -20,6 +20,7 @@ import {
   handleBrowserExecute,
   handleBrowserList,
   handleBrowserClose,
+  handleBrowserQuickExecute,
 } from './commands/browser';
 import { handleVersionCommand } from './commands/version';
 import { handleLoginCommand } from './commands/login';
@@ -595,15 +596,37 @@ function createBrowserCommand(): Command {
     .description(
       'Launch cloud browser sessions and execute Python, JavaScript, or bash code remotely via Playwright'
     )
+    .argument('[code]', 'Shorthand: auto-launch session + execute command')
+    .option(
+      '-k, --api-key <key>',
+      'Firecrawl API key (overrides global --api-key)'
+    )
+    .option('--api-url <url>', 'API URL (overrides global --api-url)')
+    .option('-o, --output <path>', 'Output file path (default: stdout)')
+    .option('--json', 'Output as JSON format', false)
+    .action(async (code, options) => {
+      if (code) {
+        await handleBrowserQuickExecute({
+          code,
+          apiKey: options.apiKey,
+          apiUrl: options.apiUrl,
+          output: options.output,
+          json: options.json,
+        });
+      }
+    })
     .addHelpText(
       'after',
       `
-Examples:
-  $ firecrawl browser launch
+Shorthand (auto-launches session if needed):
+  $ firecrawl browser "open https://example.com"
+  $ firecrawl browser "snapshot"
+  $ firecrawl browser "click @e5"
+  $ firecrawl browser "scrape"
+
+Explicit subcommands:
+  $ firecrawl browser launch-session
   $ firecrawl browser execute "open https://example.com"
-  $ firecrawl browser execute "snapshot"
-  $ firecrawl browser execute "click @e5"
-  $ firecrawl browser execute "scrape"
   $ firecrawl browser list active
   $ firecrawl browser close
 
@@ -618,8 +641,10 @@ Examples:
     );
 
   browserCmd
-    .command('launch')
-    .description('Launch a new cloud browser session')
+    .command('launch-session')
+    .description(
+      'Launch a new cloud browser session (without executing a command)'
+    )
     .option(
       '--ttl <seconds>',
       'Total session TTL in seconds (default: 300)',
@@ -641,11 +666,14 @@ Output:
   Prints the Session ID and CDP URL. The session is auto-saved so
   subsequent execute/close commands target it automatically.
 
+  Tip: Use the shorthand to launch + execute in one step:
+    $ firecrawl browser "open https://example.com"
+
 Examples:
-  $ firecrawl browser launch
-  $ firecrawl browser launch --stream --ttl 600
-  $ firecrawl browser launch --ttl 300 --ttl-inactivity 60
-  $ firecrawl browser launch -o session.json --json
+  $ firecrawl browser launch-session
+  $ firecrawl browser launch-session --stream --ttl 600
+  $ firecrawl browser launch-session --ttl 300 --ttl-inactivity 60
+  $ firecrawl browser launch-session -o session.json --json
 `
     )
     .action(async (options) => {

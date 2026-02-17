@@ -8,6 +8,7 @@ import {
   handleBrowserExecute,
   handleBrowserList,
   handleBrowserClose,
+  handleBrowserQuickExecute,
 } from '../../commands/browser';
 import { getClient } from '../../utils/client';
 import { initializeConfig } from '../../utils/config';
@@ -128,5 +129,38 @@ describe('Browser Commands', () => {
     expect(mockClient.deleteBrowser).toHaveBeenCalledWith('stored-session-id');
     const { clearBrowserSession } = await import('../../utils/browser-session');
     expect(clearBrowserSession).toHaveBeenCalled();
+  });
+
+  it('quick execute skips launch when session exists', async () => {
+    // loadBrowserSession already returns a stored session (from mock)
+    // so quick execute should NOT call browser() to launch
+    await handleBrowserQuickExecute({ code: 'open https://example.com' });
+
+    expect(mockClient.browser).not.toHaveBeenCalled();
+  });
+
+  it('quick execute auto-launches when no session exists', async () => {
+    const { loadBrowserSession, saveBrowserSession } =
+      await import('../../utils/browser-session');
+    vi.mocked(loadBrowserSession).mockReturnValueOnce(null); // no session first call
+    vi.mocked(loadBrowserSession).mockReturnValue({
+      // session exists after launch
+      id: 'new-session',
+      cdpUrl: 'wss://new',
+      createdAt: '2025-01-01T00:00:00Z',
+    });
+
+    mockClient.browser.mockResolvedValue({
+      success: true,
+      id: 'new-session',
+      cdpUrl: 'wss://new',
+    });
+
+    await handleBrowserQuickExecute({ code: 'open https://example.com' });
+
+    expect(mockClient.browser).toHaveBeenCalledTimes(1);
+    expect(saveBrowserSession).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'new-session' })
+    );
   });
 });
