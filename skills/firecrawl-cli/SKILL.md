@@ -212,7 +212,7 @@ firecrawl map https://example.com --include-subdomains -o .firecrawl/all-urls.tx
 
 ### Browser - Cloud browser sessions
 
-Launch remote Chromium sessions. By default, commands are sent to agent-browser (pre-installed in every sandbox). Use `--python` or `--node` to run Playwright code directly instead. Sessions persist across commands -- after `launch`, subsequent `execute` calls reuse the last session automatically.
+Launch remote Chromium sessions with a built-in sandbox. By default, commands are sent to agent-browser (pre-installed in every sandbox). Use `--python` or `--node` to run Playwright code directly instead. Sessions persist across commands -- after `launch`, subsequent `execute` calls reuse the last session automatically.
 
 ```bash
 # Launch a session (saves connection details)
