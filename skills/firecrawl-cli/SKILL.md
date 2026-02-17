@@ -212,30 +212,58 @@ firecrawl map https://example.com --include-subdomains -o .firecrawl/all-urls.tx
 
 ### Browser - Cloud browser sessions
 
-Launch remote Chromium sessions with a built-in sandbox. By default, commands are sent to agent-browser (pre-installed in every sandbox). Use `--python` or `--node` to run Playwright code directly instead. Sessions persist across commands -- after `launch`, subsequent `execute` calls reuse the last session automatically.
+Launch remote Chromium sessions with a built-in sandbox. Sessions persist across commands and agent-browser (40+ commands) is pre-installed in every sandbox.
+
+#### Shorthand (Recommended)
+
+The simplest way to use browser. Auto-launches a session if needed, auto-prefixes agent-browser — no setup required:
 
 ```bash
-# Launch a session (saves connection details)
-firecrawl browser launch -o .firecrawl/browser-session.json --json
+firecrawl browser "open https://example.com"
+firecrawl browser "snapshot"
+firecrawl browser "click @e5"
+firecrawl browser "fill @e3 'search query'"
+firecrawl browser "scrape" -o .firecrawl/browser-scrape.md
+```
 
-# Launch with custom TTL and live view streaming
-firecrawl browser launch --ttl 600 --stream -o .firecrawl/browser-session.json --json
+#### Execute mode
 
-# Execute agent-browser commands (default mode)
+Explicit form with `execute` subcommand. Commands are still sent to agent-browser automatically:
+
+```bash
 firecrawl browser execute "open https://example.com" -o .firecrawl/browser-result.txt
 firecrawl browser execute "snapshot" -o .firecrawl/browser-result.txt
 firecrawl browser execute "click @e5"
 firecrawl browser execute "scrape" -o .firecrawl/browser-scrape.md
+```
 
-# Execute Playwright Python
+#### Playwright & Bash modes
+
+Use `--python`, `--node`, or `--bash` for direct code execution (no agent-browser auto-prefix):
+
+```bash
+# Playwright Python
 firecrawl browser execute --python 'await page.goto("https://example.com")
 print(await page.title())' -o .firecrawl/browser-result.txt
 
-# Execute Playwright JavaScript
+# Playwright JavaScript
 firecrawl browser execute --node 'await page.goto("https://example.com"); await page.title()' -o .firecrawl/browser-result.txt
 
-# Execute arbitrary bash in the sandbox
+# Arbitrary bash in the sandbox
 firecrawl browser execute --bash 'ls /tmp' -o .firecrawl/browser-result.txt
+
+# Explicit agent-browser via bash (equivalent to default mode)
+firecrawl browser execute --bash "agent-browser snapshot"
+```
+
+#### Session management
+
+```bash
+# Launch a session explicitly (shorthand does this automatically)
+firecrawl browser launch-session -o .firecrawl/browser-session.json --json
+
+# Launch with custom TTL and live view streaming
+firecrawl browser launch-session --ttl 600 --stream -o .firecrawl/browser-session.json --json
 
 # Execute against a specific session
 firecrawl browser execute --session <id> "snapshot" -o .firecrawl/browser-result.txt
@@ -264,11 +292,12 @@ firecrawl browser close --session <id>
 - `--session <id>` - Target specific session (default: last launched session)
 - `-o, --output <path>` - Save to file
 
-By default (no flag), commands are sent to agent-browser. `--python`, `--node`, and `--bash` are mutually exclusive.
+**Modes:** By default (no flag), commands are sent to agent-browser. `--python`, `--node`, and `--bash` are mutually exclusive.
 
 **Notes:**
 
-- Session auto-saves after `launch` -- no need to pass `--session` for subsequent commands
+- Shorthand auto-launches a session if none exists — no need to call `launch-session` first
+- Session auto-saves after launch — no need to pass `--session` for subsequent commands
 - In Python/Node mode, `page`, `browser`, and `context` objects are pre-configured (no setup needed)
 - Use `print()` to return output from Python execution
 
@@ -375,31 +404,18 @@ firecrawl credit-usage
 firecrawl credit-usage --json --pretty -o .firecrawl/credits.json
 ```
 
-### Bash Mode with agent-browser (Recommended for AI Agents)
+### agent-browser Quick Reference
 
-For AI agents, `--bash` with agent-browser is the simplest approach. agent-browser is pre-installed in every sandbox with 40+ commands.
+The shorthand is the fastest way for AI agents to interact with browsers. agent-browser is pre-installed in every sandbox with 40+ commands.
 
 ```bash
-# Launch a session
-firecrawl browser launch -o .firecrawl/browser-session.json --json
-
-# Navigate to a page
-firecrawl browser execute --bash "agent-browser open https://example.com"
-
-# Snapshot: get an accessibility tree with @ref IDs
-firecrawl browser execute --bash "agent-browser snapshot"
-
-# Interact using @ref IDs from the snapshot
-firecrawl browser execute --bash "agent-browser fill @e3 'search query'"
-firecrawl browser execute --bash "agent-browser click @e8"
-
-# Snapshot again to see updated state
-firecrawl browser execute --bash "agent-browser snapshot"
-
-# Extract page content
-firecrawl browser execute --bash "agent-browser scrape" -o .firecrawl/browser-scrape.md
-
-# Close
+# Full workflow using shorthand (session auto-launches)
+firecrawl browser "open https://example.com"
+firecrawl browser "snapshot"
+firecrawl browser "fill @e3 'search query'"
+firecrawl browser "click @e8"
+firecrawl browser "snapshot"
+firecrawl browser "scrape" -o .firecrawl/browser-scrape.md
 firecrawl browser close
 ```
 
