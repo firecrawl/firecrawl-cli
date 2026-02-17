@@ -600,20 +600,20 @@ function createBrowserCommand(): Command {
       `
 Examples:
   $ firecrawl browser launch
-  $ firecrawl browser execute 'print(await page.title())'
-  $ firecrawl browser execute --bash "agent-browser snapshot"
+  $ firecrawl browser execute "open https://example.com"
+  $ firecrawl browser execute "snapshot"
+  $ firecrawl browser execute "click @e5"
+  $ firecrawl browser execute "scrape"
   $ firecrawl browser list active
   $ firecrawl browser close
 
-agent-browser (pre-installed in every sandbox):
-  Use --bash to run agent-browser commands instead of writing Playwright code.
-  $ firecrawl browser execute --bash "agent-browser open https://example.com"
-  $ firecrawl browser execute --bash "agent-browser snapshot"
-  $ firecrawl browser execute --bash "agent-browser click @e5"
-  $ firecrawl browser execute --bash "agent-browser scrape"
+  By default, commands are sent to agent-browser (pre-installed in every sandbox).
+  Use --python or --node to run Playwright code instead.
+  $ firecrawl browser execute --python 'print(await page.title())'
+  $ firecrawl browser execute --node 'await page.title()'
 
   See all agent-browser commands:
-  $ firecrawl browser execute --bash "agent-browser --help"
+  $ firecrawl browser execute "--help"
 `
     );
 
@@ -663,14 +663,14 @@ Examples:
   browserCmd
     .command('execute')
     .description(
-      'Execute Playwright Python/JS or bash with agent-browser in a session'
+      'Execute agent-browser commands (default), or Playwright Python/JS in a session'
     )
     .argument(
       '<code>',
-      'Playwright code to execute (a "page" object is pre-configured)'
+      'agent-browser command (default) or Playwright code (with --python/--node)'
     )
-    .option('--python', 'Execute as Playwright Python code (default)', false)
-    .option('--js', 'Execute as Playwright JavaScript code', false)
+    .option('--python', 'Execute as Playwright Python code', false)
+    .option('--node', 'Execute as Playwright JavaScript code', false)
     .option(
       '--bash',
       'Execute bash in the sandbox (agent-browser pre-installed, CDP_URL auto-injected)',
@@ -691,18 +691,24 @@ Examples:
       'after',
       `
 How it works:
-  Code runs server-side in a sandbox with Playwright pre-configured.
-  A "page" object is already available — no imports or CDP connection needed.
-  Use "await" for all Playwright calls. Use "print()" (Python) or the last
-  expression value (JS) to return output.
+  By default, commands are sent to agent-browser (pre-installed in every sandbox).
+  You don't need to type "agent-browser" — it's added automatically.
 
-  IMPORTANT: Do NOT import playwright or connect to CDP in your code.
-  The page object is already set up for you.
+agent-browser examples (default):
+  $ firecrawl browser execute "open https://example.com"
+  $ firecrawl browser execute "snapshot"
+  $ firecrawl browser execute "click @e5"
+  $ firecrawl browser execute "scrape"
 
-Python examples (default):
-  $ firecrawl browser execute 'await page.goto("https://example.com")'
-  $ firecrawl browser execute 'print(await page.title())'
-  $ firecrawl browser execute '
+  You can still pass the full command if you prefer:
+  $ firecrawl browser execute "agent-browser snapshot"
+
+  Use --bash for arbitrary bash commands (not just agent-browser):
+  $ firecrawl browser execute --bash 'ls /tmp'
+
+Python examples (use --python):
+  $ firecrawl browser execute --python 'print(await page.title())'
+  $ firecrawl browser execute --python '
     await page.goto("https://news.ycombinator.com")
     title = await page.title()
     items = await page.query_selector_all(".titleline > a")
@@ -710,32 +716,43 @@ Python examples (default):
         print(await item.inner_text())
   '
 
-JavaScript examples:
-  $ firecrawl browser execute --js 'await page.goto("https://example.com"); await page.title()'
-
-Bash examples (agent-browser pre-installed in sandbox):
-  $ firecrawl browser execute --bash 'agent-browser snapshot'
-  $ firecrawl browser execute --bash 'agent-browser open https://example.com'
+JavaScript examples (use --node):
+  $ firecrawl browser execute --node 'await page.goto("https://example.com"); await page.title()'
 
 Target a specific session:
-  $ firecrawl browser execute --session <id> 'print(await page.title())'
+  $ firecrawl browser execute --session <id> "snapshot"
 
-Note: --python, --js, and --bash are mutually exclusive.
+Note: --python, --node, and --bash are mutually exclusive.
 `
     )
     .action(async (code, options) => {
-      const flagCount = [options.python, options.js, options.bash].filter(
+      const flagCount = [options.python, options.node, options.bash].filter(
         Boolean
       ).length;
       if (flagCount > 1) {
         console.error(
-          'Error: Only one of --python, --js, or --bash can be specified'
+          'Error: Only one of --python, --node, or --bash can be specified'
         );
         process.exit(1);
       }
-      const language = options.bash ? 'bash' : options.js ? 'js' : 'python';
+      const language = options.python
+        ? 'python'
+        : options.node
+          ? 'node'
+          : 'bash';
+
+      // In default/bash mode, auto-prefix "agent-browser" if not already present
+      let finalCode = code;
+      if (
+        language === 'bash' &&
+        !options.bash &&
+        !finalCode.startsWith('agent-browser')
+      ) {
+        finalCode = `agent-browser ${finalCode}`;
+      }
+
       await handleBrowserExecute({
-        code,
+        code: finalCode,
         language,
         session: options.session,
         apiKey: options.apiKey,

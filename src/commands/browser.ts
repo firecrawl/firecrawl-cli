@@ -25,7 +25,7 @@ export interface BrowserLaunchOptions {
 
 export interface BrowserExecuteOptions {
   code: string;
-  language?: 'python' | 'js' | 'bash';
+  language?: 'python' | 'node' | 'bash';
   session?: string;
   apiKey?: string;
   apiUrl?: string;
@@ -59,13 +59,13 @@ export async function handleBrowserLaunch(
     const app = getClient({ apiKey: options.apiKey, apiUrl: options.apiUrl });
 
     const args: {
-      ttlTotal?: number;
-      ttlWithoutActivity?: number;
+      ttl?: number;
+      activityTtl?: number;
       streamWebView?: boolean;
     } = {};
-    if (options.ttl !== undefined) args.ttlTotal = options.ttl;
+    if (options.ttl !== undefined) args.ttl = options.ttl;
     if (options.ttlInactivity !== undefined)
-      args.ttlWithoutActivity = options.ttlInactivity;
+      args.activityTtl = options.ttlInactivity;
     if (options.stream !== undefined) args.streamWebView = options.stream;
 
     const data = await app.browser(args);
@@ -169,7 +169,36 @@ export async function handleBrowserExecute(
   // Bash execution runs locally — skip the API entirely
   if (options.language === 'bash') {
     try {
-      const session = loadBrowserSession();
+      let session: { id: string; cdpUrl: string } | null = null;
+
+      if (options.session) {
+        const stored = loadBrowserSession();
+        if (stored && stored.id === options.session) {
+          session = stored;
+        } else {
+          // Fetch CDP URL from the API for the specified session
+          const app = getClient({
+            apiKey: options.apiKey,
+            apiUrl: options.apiUrl,
+          });
+          const list = await app.listBrowsers({ status: 'active' });
+          const match = list.sessions?.find(
+            (s: { id: string }) => s.id === options.session
+          );
+          if (match && match.cdpUrl) {
+            session = { id: match.id, cdpUrl: match.cdpUrl };
+          } else {
+            console.error(
+              `Error: Session ${options.session} not found or not active.`
+            );
+            process.exit(1);
+            return;
+          }
+        }
+      } else {
+        session = loadBrowserSession();
+      }
+
       if (!session) {
         console.error(
           'Error: No active browser session. Run `firecrawl browser launch` first.'

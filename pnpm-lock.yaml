@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@mendable/firecrawl-js':
-        specifier: 4.13.0-beta.2
-        version: 4.13.0-beta.2
+        specifier: 4.13.0-beta.3
+        version: 4.13.0-beta.3
       commander:
         specifier: ^14.0.2
         version: 14.0.2
@@ -195,8 +195,8 @@ packages:
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
 
-  '@mendable/firecrawl-js@4.13.0-beta.2':
-    resolution: {integrity: sha512-OOf4Xo+5Y1nK0hFX6SuGdZtVayXH8C1JRhduG7+HxBIK4E7yYm8wymcN58ESoK0X5RqtXeExVVyiTJFoaLAHQg==}
+  '@mendable/firecrawl-js@4.13.0-beta.3':
+    resolution: {integrity: sha512-OD8PmuQ1HdOanLub2xXVg4uCq1rJndlb/yuRYO1tUn697+ckgp0E/4yk3V49YoQM2ArW3/lIHCOKR/ifxp2ADg==}
     engines: {node: '>=22.0.0'}
 
   '@rollup/rollup-android-arm-eabi@4.55.1':
@@ -972,7 +972,7 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
-  '@mendable/firecrawl-js@4.13.0-beta.2':
+  '@mendable/firecrawl-js@4.13.0-beta.3':
     dependencies:
       axios: 1.13.5
       typescript-event-target: 1.1.2
