@@ -434,7 +434,7 @@ firecrawl agent abc123-def456-... --wait --poll-interval 10
 
 ---
 
-### `browser` - Cloud browser sessions (Beta)
+### `browser` - Browser sandbox sessions (Beta)
 
 Launch and control cloud browser sessions. By default, commands are sent to agent-browser (pre-installed in every sandbox). Use `--python` or `--node` to run Playwright code directly instead.
 
