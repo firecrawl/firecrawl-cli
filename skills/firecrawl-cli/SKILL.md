@@ -32,7 +32,7 @@ firecrawl --status
 Output when ready:
 
 ```
-  🔥 firecrawl cli v1.0.2
+  🔥 firecrawl cli v1.4.0
 
   ● Authenticated via FIRECRAWL_API_KEY
   Concurrency: 0/100 jobs (parallel scrape limit)
@@ -212,7 +212,7 @@ firecrawl map https://example.com --include-subdomains -o .firecrawl/all-urls.tx
 
 ### Browser - Cloud browser sessions
 
-Launch remote Chromium sessions with full Playwright control. Sessions persist across commands -- after `launch`, subsequent `execute` calls reuse the last session automatically.
+Launch remote Chromium sessions. By default, commands are sent to agent-browser (pre-installed in every sandbox). Use `--python` or `--node` to run Playwright code directly instead. Sessions persist across commands -- after `launch`, subsequent `execute` calls reuse the last session automatically.
 
 ```bash
 # Launch a session (saves connection details)
@@ -221,15 +221,24 @@ firecrawl browser launch -o .firecrawl/browser-session.json --json
 # Launch with custom TTL and live view streaming
 firecrawl browser launch --ttl 600 --stream -o .firecrawl/browser-session.json --json
 
-# Execute Python code against the session (default)
-firecrawl browser execute 'await page.goto("https://example.com")
+# Execute agent-browser commands (default mode)
+firecrawl browser execute "open https://example.com" -o .firecrawl/browser-result.txt
+firecrawl browser execute "snapshot" -o .firecrawl/browser-result.txt
+firecrawl browser execute "click @e5"
+firecrawl browser execute "scrape" -o .firecrawl/browser-scrape.md
+
+# Execute Playwright Python
+firecrawl browser execute --python 'await page.goto("https://example.com")
 print(await page.title())' -o .firecrawl/browser-result.txt
 
-# Execute JavaScript instead
-firecrawl browser execute --js 'await page.goto("https://example.com"); console.log(await page.title());' -o .firecrawl/browser-result.txt
+# Execute Playwright JavaScript
+firecrawl browser execute --node 'await page.goto("https://example.com"); await page.title()' -o .firecrawl/browser-result.txt
+
+# Execute arbitrary bash in the sandbox
+firecrawl browser execute --bash 'ls /tmp' -o .firecrawl/browser-result.txt
 
 # Execute against a specific session
-firecrawl browser execute --session <id> 'print(await page.title())' -o .firecrawl/browser-result.txt
+firecrawl browser execute --session <id> "snapshot" -o .firecrawl/browser-result.txt
 
 # List all sessions
 firecrawl browser list --json -o .firecrawl/browser-sessions.json
@@ -246,20 +255,125 @@ firecrawl browser close --session <id>
 
 **Browser Options:**
 
-- `--ttl <seconds>` - Total session lifetime (default: 300, range: 30-3600)
-- `--ttl-inactivity <seconds>` - Auto-close after inactivity (range: 10-3600)
+- `--ttl <seconds>` - Total session lifetime (default: 300)
+- `--ttl-inactivity <seconds>` - Auto-close after inactivity
 - `--stream` - Enable live view streaming
-- `--python` - Execute as Python (default)
-- `--js` - Execute as JavaScript
-- `--bash` - Execute bash commands in the sandbox (agent-browser is pre-installed)
+- `--python` - Execute as Playwright Python code
+- `--node` - Execute as Playwright JavaScript code
+- `--bash` - Execute bash commands in the sandbox (agent-browser pre-installed, CDP_URL auto-injected)
 - `--session <id>` - Target specific session (default: last launched session)
 - `-o, --output <path>` - Save to file
+
+By default (no flag), commands are sent to agent-browser. `--python`, `--node`, and `--bash` are mutually exclusive.
 
 **Notes:**
 
 - Session auto-saves after `launch` -- no need to pass `--session` for subsequent commands
-- Code receives pre-configured `page`, `browser`, and `context` objects (no setup needed)
+- In Python/Node mode, `page`, `browser`, and `context` objects are pre-configured (no setup needed)
 - Use `print()` to return output from Python execution
+
+### Crawl - Crawl an entire website
+
+```bash
+# Start a crawl (returns job ID)
+firecrawl crawl https://example.com -o .firecrawl/crawl-result.json
+
+# Wait for crawl to complete
+firecrawl crawl https://example.com --wait -o .firecrawl/crawl-result.json --pretty
+
+# With progress indicator
+firecrawl crawl https://example.com --wait --progress -o .firecrawl/crawl-result.json
+
+# Check crawl status
+firecrawl crawl <job-id>
+
+# Limit pages and depth
+firecrawl crawl https://example.com --limit 100 --max-depth 3 --wait -o .firecrawl/crawl-result.json
+
+# Crawl specific sections only
+firecrawl crawl https://example.com --include-paths /blog,/docs --wait -o .firecrawl/crawl-blog.json
+
+# Exclude pages
+firecrawl crawl https://example.com --exclude-paths /admin,/login --wait -o .firecrawl/crawl-result.json
+
+# Rate-limited crawl
+firecrawl crawl https://example.com --delay 1000 --max-concurrency 2 --wait -o .firecrawl/crawl-result.json
+```
+
+**Crawl Options:**
+
+- `--wait` - Wait for crawl to complete before returning results
+- `--progress` - Show progress while waiting
+- `--limit <n>` - Maximum pages to crawl
+- `--max-depth <n>` - Maximum crawl depth
+- `--include-paths <paths>` - Only crawl matching paths (comma-separated)
+- `--exclude-paths <paths>` - Skip matching paths (comma-separated)
+- `--sitemap <mode>` - include, skip, or only
+- `--allow-subdomains` - Include subdomains
+- `--allow-external-links` - Follow external links
+- `--crawl-entire-domain` - Crawl entire domain
+- `--ignore-query-parameters` - Treat URLs with different params as same
+- `--delay <ms>` - Delay between requests
+- `--max-concurrency <n>` - Max concurrent requests
+- `--poll-interval <seconds>` - Status check interval when waiting
+- `--timeout <seconds>` - Timeout when waiting
+- `-o, --output <path>` - Save to file
+- `--pretty` - Pretty print JSON output
+
+### Agent - AI-powered web data extraction
+
+Run an AI agent that autonomously browses and extracts structured data from the web. Agent tasks typically take 2 to 5 minutes.
+
+```bash
+# Basic usage (returns job ID immediately)
+firecrawl agent "Find the pricing plans for Firecrawl" -o .firecrawl/agent-pricing.json
+
+# Wait for completion
+firecrawl agent "Extract all product names and prices" --wait -o .firecrawl/agent-products.json
+
+# Focus on specific URLs
+firecrawl agent "Get the main features listed" --urls https://example.com/features --wait -o .firecrawl/agent-features.json
+
+# Use structured output with JSON schema
+firecrawl agent "Extract company info" --schema '{"type":"object","properties":{"name":{"type":"string"},"employees":{"type":"number"}}}' --wait -o .firecrawl/agent-company.json
+
+# Load schema from file
+firecrawl agent "Extract product data" --schema-file ./product-schema.json --wait -o .firecrawl/agent-products.json
+
+# Use higher accuracy model
+firecrawl agent "Extract detailed specs" --model spark-1-pro --wait -o .firecrawl/agent-specs.json
+
+# Limit cost
+firecrawl agent "Get all blog post titles" --urls https://blog.example.com --max-credits 100 --wait -o .firecrawl/agent-blog.json
+
+# Check status of an existing job
+firecrawl agent <job-id>
+firecrawl agent <job-id> --wait
+```
+
+**Agent Options:**
+
+- `--urls <urls>` - Comma-separated URLs to focus extraction on
+- `--model <model>` - spark-1-mini (default, cheaper) or spark-1-pro (higher accuracy)
+- `--schema <json>` - JSON schema for structured output (inline JSON string)
+- `--schema-file <path>` - Path to JSON schema file
+- `--max-credits <number>` - Maximum credits to spend (job fails if exceeded)
+- `--wait` - Wait for agent to complete
+- `--poll-interval <seconds>` - Polling interval when waiting (default: 5)
+- `--timeout <seconds>` - Timeout when waiting
+- `-o, --output <path>` - Save to file
+- `--json` - Output as JSON format
+- `--pretty` - Pretty print JSON output
+
+### Credit Usage - Check your credits
+
+```bash
+# Show credit usage (human-readable)
+firecrawl credit-usage
+
+# Output as JSON
+firecrawl credit-usage --json --pretty -o .firecrawl/credits.json
+```
 
 ### Bash Mode with agent-browser (Recommended for AI Agents)
 

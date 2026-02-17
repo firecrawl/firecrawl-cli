@@ -104,29 +104,37 @@ firecrawl https://example.com --format json -o data.json --pretty
 
 #### Scrape Options
 
-| Option                   | Description                                             |
-| ------------------------ | ------------------------------------------------------- |
-| `-f, --format <formats>` | Output format(s), comma-separated                       |
-| `-H, --html`             | Shortcut for `--format html`                            |
-| `--only-main-content`    | Extract only main content (removes navs, footers, etc.) |
-| `--wait-for <ms>`        | Wait time before scraping (for JS-rendered content)     |
-| `--screenshot`           | Take a screenshot                                       |
-| `--include-tags <tags>`  | Only include specific HTML tags                         |
-| `--exclude-tags <tags>`  | Exclude specific HTML tags                              |
-| `-o, --output <path>`    | Save output to file                                     |
-| `--pretty`               | Pretty print JSON output                                |
-| `--timing`               | Show request timing info                                |
+| Option                     | Description                                             |
+| -------------------------- | ------------------------------------------------------- |
+| `-f, --format <formats>`   | Output format(s), comma-separated                       |
+| `-H, --html`               | Shortcut for `--format html`                            |
+| `-S, --summary`            | Shortcut for `--format summary`                         |
+| `--only-main-content`      | Extract only main content (removes navs, footers, etc.) |
+| `--wait-for <ms>`          | Wait time before scraping (for JS-rendered content)     |
+| `--screenshot`             | Take a screenshot                                       |
+| `--include-tags <tags>`    | Only include specific HTML tags                         |
+| `--exclude-tags <tags>`    | Exclude specific HTML tags                              |
+| `--max-age <milliseconds>` | Maximum age of cached content in milliseconds           |
+| `-o, --output <path>`      | Save output to file                                     |
+| `--json`                   | Output as JSON format                                   |
+| `--pretty`                 | Pretty print JSON output                                |
+| `--timing`                 | Show request timing info                                |
 
 #### Available Formats
 
-| Format       | Description                |
-| ------------ | -------------------------- |
-| `markdown`   | Clean markdown (default)   |
-| `html`       | Cleaned HTML               |
-| `rawHtml`    | Original HTML              |
-| `links`      | All links on the page      |
-| `screenshot` | Screenshot as base64       |
-| `json`       | Structured JSON extraction |
+| Format           | Description                  |
+| ---------------- | ---------------------------- |
+| `markdown`       | Clean markdown (default)     |
+| `html`           | Cleaned HTML                 |
+| `rawHtml`        | Original HTML                |
+| `links`          | All links on the page        |
+| `images`         | All images on the page       |
+| `screenshot`     | Screenshot as base64         |
+| `summary`        | AI-generated summary         |
+| `json`           | Structured JSON extraction   |
+| `changeTracking` | Track changes on the page    |
+| `attributes`     | Page attributes and metadata |
+| `branding`       | Brand identity extraction    |
 
 #### Examples
 
@@ -209,7 +217,7 @@ firecrawl search "web scraping"
 | `--scrape-formats <formats>` | Scrape formats when `--scrape` enabled (default: markdown)                                  |
 | `--only-main-content`        | Include only main content when scraping (default: true)                                     |
 | `-o, --output <path>`        | Save to file                                                                                |
-| `--json`                     | Output as compact JSON (use `-p` for pretty JSON)                                           |
+| `--json`                     | Output as compact JSON                                                                      |
 
 #### Examples
 
@@ -221,10 +229,10 @@ firecrawl search "React Server Components" --tbs qdr:m --limit 10
 firecrawl search "web scraping library" --categories github --limit 20
 
 # Search and get full content
-firecrawl search "firecrawl documentation" --scrape --scrape-formats markdown -p -o results.json
+firecrawl search "firecrawl documentation" --scrape --scrape-formats markdown --json -o results.json
 
 # Find research papers
-firecrawl search "large language models" --categories research -p
+firecrawl search "large language models" --categories research --json
 
 # Search with location targeting
 firecrawl search "best coffee shops" --location "Berlin,Germany" --country DE
@@ -428,19 +436,26 @@ firecrawl agent abc123-def456-... --wait --poll-interval 10
 
 ### `browser` - Cloud browser sessions (Beta)
 
-Launch and control cloud browser sessions. Execute Python (Playwright) code remotely — `page`, `browser`, and `context` are pre-configured. Use `print()` to return output.
+Launch and control cloud browser sessions. By default, commands are sent to agent-browser (pre-installed in every sandbox). Use `--python` or `--node` to run Playwright code directly instead.
 
 ```bash
 # 1. Launch a session
 firecrawl browser launch --stream
 
-# 2. Execute Python remotely
-firecrawl browser execute "await page.goto('https://example.com'); print(await page.title())"
+# 2. Execute agent-browser commands (default)
+firecrawl browser execute "open https://example.com"
+firecrawl browser execute "snapshot"
+firecrawl browser execute "click @e5"
+firecrawl browser execute "scrape"
 
-# 3. List sessions
+# 3. Execute Playwright Python or JavaScript
+firecrawl browser execute --python "await page.goto('https://example.com'); print(await page.title())"
+firecrawl browser execute --node "await page.goto('https://example.com'); await page.title()"
+
+# 4. List sessions
 firecrawl browser list
 
-# 4. Close
+# 5. Close
 firecrawl browser close
 ```
 
@@ -453,47 +468,61 @@ firecrawl browser close
 | `--stream`                   | Enable live view streaming                  |
 | `-o, --output <path>`        | Save output to file                         |
 | `--json`                     | Output as JSON format                       |
-| `--pretty`                   | Pretty print JSON output                    |
 
 #### Execute Options
 
-| Option                | Description                                      |
-| --------------------- | ------------------------------------------------ |
-| `--session <id>`      | Target a specific session (auto-saved on launch) |
-| `-o, --output <path>` | Save output to file                              |
-| `--json`              | Output as JSON format                            |
-| `--pretty`            | Pretty print JSON output                         |
+| Option                | Description                                                        |
+| --------------------- | ------------------------------------------------------------------ |
+| `--python`            | Execute as Playwright Python code                                  |
+| `--node`              | Execute as Playwright JavaScript code                              |
+| `--bash`              | Execute bash commands in the sandbox (agent-browser pre-installed) |
+| `--session <id>`      | Target a specific session (auto-saved on launch)                   |
+| `-o, --output <path>` | Save output to file                                                |
+| `--json`              | Output as JSON format                                              |
+
+By default (no flag), commands are sent to agent-browser. `--python`, `--node`, and `--bash` are mutually exclusive.
 
 #### Examples
 
 ```bash
-# Navigate and extract
-firecrawl browser execute "await page.goto('https://example.com'); print(await page.title())"
+# agent-browser commands (default mode)
+firecrawl browser execute "open https://example.com"
+firecrawl browser execute "snapshot"
+firecrawl browser execute "click @e5"
+firecrawl browser execute "fill @e3 'search query'"
+firecrawl browser execute "scrape"
 
-# Snapshot interactive elements
-firecrawl browser execute "print(await page.locator('body').aria_snapshot())"
+# Playwright Python
+firecrawl browser execute --python "await page.goto('https://example.com'); print(await page.title())"
 
-# Fill a form
-firecrawl browser execute "await page.get_by_role('textbox', name='Search').fill('firecrawl')"
+# Playwright JavaScript
+firecrawl browser execute --node "await page.goto('https://example.com'); await page.title()"
+
+# Bash (arbitrary commands in the sandbox)
+firecrawl browser execute --bash "ls /tmp"
 
 # Launch with extended TTL
 firecrawl browser launch --ttl 900 --ttl-inactivity 120
 
 # JSON output
-firecrawl browser execute --json "print(await page.title())"
+firecrawl browser execute --json "snapshot"
 ```
 
 ---
 
-### `config` - Configure and view settings
+### `config` - Configure settings
 
 ```bash
-# View current configuration
-firecrawl config
-
 # Configure with custom API URL
 firecrawl config --api-url https://firecrawl.mycompany.com
 firecrawl config --api-url http://localhost:3002 --api-key fc-xxx
+```
+
+### `view-config` - View current configuration
+
+```bash
+# View current configuration and authentication status
+firecrawl view-config
 ```
 
 Shows authentication status and stored credentials location.
@@ -538,7 +567,7 @@ firecrawl --status
 ```
 
 ```
-  🔥 firecrawl cli v1.0.2
+  🔥 firecrawl cli v1.4.0
 
   ● Authenticated via stored credentials
   Concurrency: 0/100 jobs (parallel scrape limit)
