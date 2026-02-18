@@ -11,10 +11,10 @@ description: |
 Install the CLI globally **and** add skills for AI coding agents in one command:
 
 ```bash
-npx -y firecrawl-cli init
+npx -y firecrawl-cli init --all --browser
 ```
 
-This installs `firecrawl-cli` globally, authenticates, and runs `skills add firecrawl/cli` automatically.
+This installs `firecrawl-cli` globally, opens the browser for authentication, and installs skills to all detected agents — zero prompts.
 
 ## Manual Installation
 

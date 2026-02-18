@@ -76,10 +76,10 @@ Never use browser on sites with bot detection — it will be blocked. This inclu
 
 ## Installation
 
-Quick setup (installs CLI globally, authenticates, and adds skills in one command):
+Quick setup (installs CLI globally, authenticates, and adds skills — zero prompts):
 
 ```bash
-npx -y firecrawl-cli init
+npx -y firecrawl-cli init --all --browser
 ```
 
 Check status, auth, and rate limits:
@@ -101,7 +101,7 @@ Output when ready:
 - **Concurrency**: Max parallel jobs. Run parallel operations close to this limit but not above.
 - **Credits**: Remaining API credits. Each scrape/crawl consumes credits.
 
-If not installed: `npx -y firecrawl-cli init` (or manually: `npm install -g firecrawl-cli` + `firecrawl setup skills`)
+If not installed: `npx -y firecrawl-cli init --all --browser` (or manually: `npm install -g firecrawl-cli` + `firecrawl setup skills`)
 
 Always refer to the installation rules in [rules/install.md](rules/install.md) for more information if the user is not logged in.
 

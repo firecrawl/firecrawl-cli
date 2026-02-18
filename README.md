@@ -11,7 +11,7 @@ npm install -g firecrawl-cli
 Or set up everything in one command (install CLI globally, authenticate, and add skills):
 
 ```bash
-npx -y firecrawl-cli init
+npx -y firecrawl-cli init --all --browser
 ```
 
 ### Setup Skills and MCP
@@ -79,7 +79,6 @@ export FIRECRAWL_API_KEY=fc-your-api-key
 # Per-command API key
 firecrawl scrape https://example.com --api-key fc-your-api-key
 ```
-
 
 ### Self-hosted / Local Development
 
