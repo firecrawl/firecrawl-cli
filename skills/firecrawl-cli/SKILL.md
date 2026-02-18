@@ -36,6 +36,8 @@ Follow this escalation pattern when fetching web data:
 4. **Crawl** — You need bulk content from an entire site section (e.g., all docs pages).
 5. **Browser** — Scrape didn't return the needed data because it's behind interaction (pagination, modals, form submissions, multi-step navigation). Open a browser session to click through and extract it.
 
+**Note:** `search --scrape` already fetches full page content for every result. Don't scrape those URLs again individually — only scrape URLs that weren't part of the search results.
+
 **Example: fetching API docs from a large documentation site**
 
 ```
@@ -52,6 +54,20 @@ browser "open https://example.com/products"         →  open in browser
 browser "snapshot"                                  →  find the pagination button
 browser "click @e12"                                →  click "Next Page"
 browser "scrape" -o .firecrawl/products-p2.md       →  extract page 2 content
+```
+
+**Example: research task**
+
+```
+search "firecrawl vs competitors 2024" --scrape -o .firecrawl/search-comparison-scraped.json
+                                                    →  full content already fetched for each result
+grep -n "pricing\|features" .firecrawl/search-comparison-scraped.json
+head -200 .firecrawl/search-comparison-scraped.json →  read and process what you have
+                                                    →  notice a relevant URL mentioned in the content
+                                                       that wasn't in the search results
+scrape https://newsite.com/comparison -o .firecrawl/newsite-comparison.md
+                                                    →  only scrape this new URL
+                                                    →  synthesize all collected data into answer
 ```
 
 ### Browser restrictions
@@ -208,6 +224,8 @@ firecrawl scrape https://example.com --format links -o .firecrawl/links.json
 firecrawl scrape https://example.com --include-tags article,main -o .firecrawl/article.md
 firecrawl scrape https://example.com --exclude-tags nav,aside,.ad -o .firecrawl/clean.md
 ```
+
+Don't re-scrape a URL with `--html` just to extract metadata (dates, authors, etc.) — that information is already present in the markdown output.
 
 **Scrape Options:**
 
@@ -457,6 +475,8 @@ firecrawl browser close --session <id>
 | `eval <js>`          | Evaluate JavaScript on the page        |
 
 ## Reading Scraped Files
+
+Always read and process the files you already have before fetching more data. Don't re-scrape a URL you already have content for.
 
 NEVER read entire firecrawl output files at once unless explicitly asked or required - they're often 1000+ lines. Instead, use grep, head, or incremental reads. Determine values dynamically based on file size and what you're looking for.
 

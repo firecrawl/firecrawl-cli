@@ -1,7 +1,7 @@
 {
     "name": "firecrawl",
     "description": "Scrape, search, crawl, and map the web with a single command.",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "author": {
         "name": "Firecrawl"
     },
