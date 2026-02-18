@@ -26,11 +26,49 @@ The toolkit has two layers:
 - **Core tools** — `search`, `scrape`, `map`, `crawl`, `agent`. These are your primary tools and handle the vast majority of tasks.
 - **Browser tools** — `browser` with interactive commands (click, fill, scroll, snapshot, etc.). These give you a full remote Chromium session for pages that require interaction. Use only when core tools can't get the data.
 
+## Core Principle: Minimize Tool Calls
+
+**Prefer getting content directly in stdout over writing to files and reading them back.** Every `-o` flag means zero content returned to you, requiring additional grep/read calls to access the data. Only use `-o` when you need to persist data for later reference or when output would exceed context limits.
+
+**Good (1 Bash call — content comes directly to you):**
+```bash
+firecrawl search "query" --scrape --limit 3
+```
+
+**Bad (5+ Bash calls — write file, parse file, grep file, read file chunks):**
+```bash
+firecrawl search "query" -o .firecrawl/results.json --json
+jq -r '.data.web[].url' .firecrawl/results.json
+firecrawl scrape <url> -o .firecrawl/page.md
+wc -l .firecrawl/page.md
+grep -n "keyword" .firecrawl/page.md
+# ...then read chunks with offset/limit
+```
+
 ## Workflow
 
-Follow this escalation pattern when fetching web data:
+### Quick research (simple factual queries)
 
-1. **Search** — Start here when you don't have a specific URL. Find pages, answer questions, discover sources.
+For questions, lookups, and fact-checking — use `search --scrape` to get search results AND page content in a single call:
+
+```bash
+# One call — search results + scraped content returned directly in stdout
+firecrawl search "Anthropic Claude API pricing 2025" --scrape --limit 3
+```
+
+This returns everything you need to answer in **one tool call**. Read the stdout output and synthesize your answer. No files, no parsing, no additional scrapes needed.
+
+If `search --scrape` results are insufficient, scrape a specific URL directly (also to stdout):
+
+```bash
+firecrawl scrape https://docs.example.com/pricing
+```
+
+### Full workflow (complex tasks)
+
+Follow this escalation pattern for tasks that require multiple pages or persistent data:
+
+1. **Search** — Start here when you don't have a specific URL. Use `--scrape` to get content in the same call.
 2. **Scrape** — You have a URL. Extract its content directly. Use `--wait-for` if JS needs to render.
 3. **Map + Scrape** — The site is large or you need a specific subpage. Use `map --search` to find the right URL, then scrape it directly instead of scraping the whole site.
 4. **Crawl** — You need bulk content from an entire site section (e.g., all docs pages).
@@ -58,16 +96,12 @@ browser "scrape" -o .firecrawl/products-p2.md       →  extract page 2 content
 
 **Example: research task**
 
-```
-search "firecrawl vs competitors 2024" --scrape -o .firecrawl/search-comparison-scraped.json
-                                                    →  full content already fetched for each result
-grep -n "pricing\|features" .firecrawl/search-comparison-scraped.json
-head -200 .firecrawl/search-comparison-scraped.json →  read and process what you have
-                                                    →  notice a relevant URL mentioned in the content
-                                                       that wasn't in the search results
-scrape https://newsite.com/comparison -o .firecrawl/newsite-comparison.md
-                                                    →  only scrape this new URL
-                                                    →  synthesize all collected data into answer
+```bash
+# Start with search --scrape to get results + content in one call
+firecrawl search "firecrawl vs competitors 2024" --scrape --limit 5
+# Read the stdout output — if you need more, scrape additional URLs directly
+firecrawl scrape https://newsite.com/comparison
+# Synthesize all collected data into answer
 ```
 
 ### Browser restrictions
@@ -115,22 +149,29 @@ firecrawl login --browser
 
 The `--browser` flag automatically opens the browser for authentication without prompting. This is the recommended method for agents. Don't tell users to run the commands themselves - just execute the command and have it prompt them to authenticate in their browser.
 
-## Organization
+## Output: Stdout vs File
 
-Create a `.firecrawl/` folder in the working directory unless it already exists to store results unless a user specifies to return in context. Add .firecrawl/ to the .gitignore file if not already there. Always use `-o` to write directly to file (avoids flooding context):
+**Default to stdout** (no `-o` flag) for simple queries and research tasks. This returns content directly in the tool response, eliminating the need for additional read/grep calls.
+
+**Use `-o` to save to file** only when:
+- The output is very large (crawls, bulk scrapes, 5+ search results with `--scrape`)
+- You need to reference the data across multiple steps
+- The user asks you to save results
+- You're doing batch operations
 
 ```bash
-# Search the web (most common operation)
-firecrawl search "your query" -o .firecrawl/search-{query}.json
+# STDOUT (default for simple queries) — content returned directly
+firecrawl search "your query" --scrape --limit 3
+firecrawl scrape https://example.com
 
-# Search with scraping enabled
-firecrawl search "your query" --scrape -o .firecrawl/search-{query}-scraped.json
-
-# Scrape a page
-firecrawl scrape https://example.com -o .firecrawl/{site}-{path}.md
+# FILE OUTPUT (for complex/large tasks) — use -o flag
+firecrawl crawl https://example.com --wait -o .firecrawl/crawl-result.json
+firecrawl search "broad topic" --scrape --limit 10 -o .firecrawl/search-topic-scraped.json
 ```
 
-Examples:
+When using file output, create a `.firecrawl/` folder in the working directory to store results. Add `.firecrawl/` to `.gitignore` if not already there.
+
+File naming examples:
 
 ```
 .firecrawl/search-react_server_components.json
@@ -160,36 +201,38 @@ Organize into subdirectories when it makes sense for the task:
 
 ### Search - Web search with optional scraping
 
-```bash
-# Basic search (human-readable output)
-firecrawl search "your query" -o .firecrawl/search-query.txt
+**Recommended: Use `--scrape` for most searches** — it fetches full page content for each result in a single call, eliminating the need for separate scrape commands.
 
-# JSON output (recommended for parsing)
-firecrawl search "your query" -o .firecrawl/search-query.json --json
+```bash
+# Search + scrape in one call (RECOMMENDED for research/questions)
+firecrawl search "your query" --scrape --limit 3
+
+# Basic search without scraping (when you only need URLs/titles)
+firecrawl search "your query"
 
 # Limit results
-firecrawl search "AI news" --limit 10 -o .firecrawl/search-ai-news.json --json
+firecrawl search "AI news" --scrape --limit 5
 
 # Search specific sources
-firecrawl search "tech startups" --sources news -o .firecrawl/search-news.json --json
-firecrawl search "landscapes" --sources images -o .firecrawl/search-images.json --json
-firecrawl search "machine learning" --sources web,news,images -o .firecrawl/search-ml.json --json
+firecrawl search "tech startups" --sources news
+firecrawl search "landscapes" --sources images
+firecrawl search "machine learning" --sources web,news,images
 
 # Filter by category (GitHub repos, research papers, PDFs)
-firecrawl search "web scraping python" --categories github -o .firecrawl/search-github.json --json
-firecrawl search "transformer architecture" --categories research -o .firecrawl/search-research.json --json
+firecrawl search "web scraping python" --categories github
+firecrawl search "transformer architecture" --categories research
 
 # Time-based search
-firecrawl search "AI announcements" --tbs qdr:d -o .firecrawl/search-today.json --json  # Past day
-firecrawl search "tech news" --tbs qdr:w -o .firecrawl/search-week.json --json          # Past week
-firecrawl search "yearly review" --tbs qdr:y -o .firecrawl/search-year.json --json      # Past year
+firecrawl search "AI announcements" --tbs qdr:d   # Past day
+firecrawl search "tech news" --tbs qdr:w           # Past week
+firecrawl search "yearly review" --tbs qdr:y       # Past year
 
 # Location-based search
-firecrawl search "restaurants" --location "San Francisco,California,United States" -o .firecrawl/search-sf.json --json
-firecrawl search "local news" --country DE -o .firecrawl/search-germany.json --json
+firecrawl search "restaurants" --location "San Francisco,California,United States"
+firecrawl search "local news" --country DE
 
-# Search AND scrape content from results
-firecrawl search "firecrawl tutorials" --scrape -o .firecrawl/search-scraped.json --json
+# Save to file only for large result sets or when needed later
+firecrawl search "broad topic" --scrape --limit 10 -o .firecrawl/search-scraped.json --json
 firecrawl search "API docs" --scrape --scrape-formats markdown,links -o .firecrawl/search-docs.json --json
 ```
 
@@ -208,27 +251,30 @@ firecrawl search "API docs" --scrape --scrape-formats markdown,links -o .firecra
 ### Scrape - Single page content extraction
 
 ```bash
-# Basic scrape (markdown output)
-firecrawl scrape https://example.com -o .firecrawl/example.md
+# Basic scrape — content returned directly in stdout
+firecrawl scrape https://example.com
 
-# Get raw HTML
-firecrawl scrape https://example.com --html -o .firecrawl/example.html
-
-# Multiple formats (JSON output)
-firecrawl scrape https://example.com --format markdown,links -o .firecrawl/example.json
-
-# Main content only (removes nav, footer, ads)
-firecrawl scrape https://example.com --only-main-content -o .firecrawl/example.md
+# Main content only (removes nav, footer, ads) — recommended for cleaner output
+firecrawl scrape https://example.com --only-main-content
 
 # Wait for JS to render
-firecrawl scrape https://spa-app.com --wait-for 3000 -o .firecrawl/spa.md
+firecrawl scrape https://spa-app.com --wait-for 3000
+
+# Get raw HTML
+firecrawl scrape https://example.com --html
+
+# Multiple formats (JSON output)
+firecrawl scrape https://example.com --format markdown,links
 
 # Extract links only
-firecrawl scrape https://example.com --format links -o .firecrawl/links.json
+firecrawl scrape https://example.com --format links
 
 # Include/exclude specific HTML tags
-firecrawl scrape https://example.com --include-tags article,main -o .firecrawl/article.md
-firecrawl scrape https://example.com --exclude-tags nav,aside,.ad -o .firecrawl/clean.md
+firecrawl scrape https://example.com --include-tags article,main
+firecrawl scrape https://example.com --exclude-tags nav,aside,.ad
+
+# Save to file only when needed for later reference
+firecrawl scrape https://example.com -o .firecrawl/example.md
 ```
 
 Don't re-scrape a URL with `--html` just to extract metadata (dates, authors, etc.) — that information is already present in the markdown output.
@@ -482,26 +528,23 @@ firecrawl browser close --session <id>
 
 ## Reading Scraped Files
 
-Always read and process the files you already have before fetching more data. Don't re-scrape a URL you already have content for.
+When you used `-o` to save to files, always read and process the files you already have before fetching more data. Don't re-scrape a URL you already have content for.
 
-NEVER read entire firecrawl output files at once unless explicitly asked or required - they're often 1000+ lines. Instead, use grep, head, or incremental reads. Determine values dynamically based on file size and what you're looking for.
-
-Examples:
+For large files (1000+ lines, like crawl results), use grep or incremental reads instead of reading the entire file:
 
 ```bash
-# Check file size and preview structure
-wc -l .firecrawl/file.md && head -50 .firecrawl/file.md
+# Check file size first
+wc -l .firecrawl/file.md
 
 # Use grep to find specific content
 grep -n "keyword" .firecrawl/file.md
 grep -A 10 "## Section" .firecrawl/file.md
 
-# Read incrementally with offset/limit
-Read(file, offset=1, limit=100)
-Read(file, offset=100, limit=100)
+# Read incrementally for very large files
+Read(file, offset=1, limit=200)
 ```
 
-Adjust line counts, offsets, and grep context as needed. Use other bash commands (awk, sed, jq, cut, sort, uniq, etc.) when appropriate for processing output.
+For small/medium files (under 500 lines), just read the whole file — it's faster than multiple grep + chunked read calls.
 
 ## Format Behavior
 
@@ -518,23 +561,22 @@ firecrawl scrape https://example.com --format markdown,links -o .firecrawl/page.
 
 ## Combining with Other Tools
 
+These patterns are useful when working with file-based output (`-o` flag) for complex tasks:
+
 ```bash
-# Extract URLs from search results
+# Extract URLs from saved search results
 jq -r '.data.web[].url' .firecrawl/search-query.json
 
-# Get titles from search results
+# Get titles from saved search results
 jq -r '.data.web[] | "\(.title): \(.url)"' .firecrawl/search-query.json
 
-# Extract links and process with jq
+# Pipe scrape output directly to jq (no file needed)
 firecrawl scrape https://example.com --format links | jq '.links[].url'
-
-# Search within scraped content
-grep -i "keyword" .firecrawl/page.md
 
 # Count URLs from map
 firecrawl map https://example.com | wc -l
 
-# Process news results
+# Process saved news results
 jq -r '.data.news[] | "[\(.date)] \(.title)"' .firecrawl/search-news.json
 ```
 
