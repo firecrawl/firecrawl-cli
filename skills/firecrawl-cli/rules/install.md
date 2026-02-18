@@ -6,7 +6,15 @@ description: |
 
 # Firecrawl CLI Installation
 
-## Quick Install
+## Installation
+
+Check if firecrawl is already available:
+
+```bash
+firecrawl --version
+```
+
+If the command is not found, install via npm:
 
 ```bash
 npm install -g firecrawl-cli
@@ -14,7 +22,7 @@ npm install -g firecrawl-cli
 
 ## Verify Installation
 
-Check if installed and authenticated in one command:
+Check if installed and authenticated:
 
 ```bash
 firecrawl --version --auth-status
