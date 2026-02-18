@@ -952,6 +952,8 @@ program
   .description(
     'Install CLI globally, authenticate, and add skills in one step (npx -y firecrawl-cli init)'
   )
+  .option('--all', 'Install skills to all detected agents (implies --yes)')
+  .option('-y, --yes', 'Skip confirmation prompts for skills installation')
   .option('-g, --global', 'Install skills globally (user-level)')
   .option('-a, --agent <agent>', 'Install skills to a specific agent')
   .option(
@@ -969,6 +971,8 @@ program
     await handleInitCommand({
       global: options.global,
       agent: options.agent,
+      all: options.all,
+      yes: options.yes,
       apiKey: options.apiKey,
       browser: options.browser,
       skipInstall: options.skipInstall,

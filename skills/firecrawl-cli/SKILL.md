@@ -38,6 +38,25 @@ Must be installed and authenticated. Check with `firecrawl --status`.
 
 If not ready, see [rules/install.md](rules/install.md). For output handling guidelines, see [rules/security.md](rules/security.md).
 
+## Core Principle: Minimize Tool Calls
+
+**Prefer getting content directly in stdout over writing to files and reading them back.** Every `-o` flag means zero content returned to you, requiring additional grep/read calls to access the data. Only use `-o` when you need to persist data for later reference or when output would exceed context limits.
+
+**Good (1 Bash call — content comes directly to you):**
+```bash
+firecrawl search "query" --scrape --limit 3
+```
+
+**Bad (5+ Bash calls — write file, parse file, grep file, read file chunks):**
+```bash
+firecrawl search "query" -o .firecrawl/results.json --json
+jq -r '.data.web[].url' .firecrawl/results.json
+firecrawl scrape <url> -o .firecrawl/page.md
+wc -l .firecrawl/page.md
+grep -n "keyword" .firecrawl/page.md
+# ...then read chunks with offset/limit
+```
+
 ## Workflow
 
 Follow this escalation pattern:
@@ -254,6 +273,8 @@ firecrawl credit-usage --json --pretty -o .firecrawl/credits.json
 ```
 
 ## Working with Results
+
+These patterns are useful when working with file-based output (`-o` flag) for complex tasks:
 
 ```bash
 # Extract URLs from search
