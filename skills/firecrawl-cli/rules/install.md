@@ -12,18 +12,12 @@ description: |
 npx -y firecrawl-cli init
 ```
 
-This installs `firecrawl-cli` globally, authenticates, and adds skills automatically.
+This installs `firecrawl-cli` globally and authenticates.
 
 ## Manual Install
 
 ```bash
 npm install -g firecrawl-cli
-```
-
-Then add skills:
-
-```bash
-firecrawl setup skills
 ```
 
 ## Verify
