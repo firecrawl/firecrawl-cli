@@ -25,6 +25,7 @@ import {
 import { handleVersionCommand } from './commands/version';
 import { handleLoginCommand } from './commands/login';
 import { handleLogoutCommand } from './commands/logout';
+import { handleInitCommand } from './commands/init';
 import { handleStatusCommand } from './commands/status';
 import { isUrl, normalizeUrl } from './utils/url';
 import { parseScrapeOptions } from './utils/options';
@@ -942,6 +943,16 @@ program
   .description('Logout and clear stored credentials')
   .action(async () => {
     await handleLogoutCommand();
+  });
+
+program
+  .command('init')
+  .description('Initialize firecrawl integrations (skills, mcp)')
+  .argument('<subcommand>', 'What to initialize: "skills" or "mcp"')
+  .option('-g, --global', 'Install globally (user-level)')
+  .option('-a, --agent <agent>', 'Install to a specific agent')
+  .action(async (subcommand, options) => {
+    await handleInitCommand(subcommand, options);
   });
 
 program
