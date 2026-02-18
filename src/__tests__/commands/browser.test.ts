@@ -36,7 +36,10 @@ vi.mock('../../utils/browser-session', async () => {
   };
 });
 
-vi.mock('../../utils/output', () => ({ writeOutput: vi.fn() }));
+vi.mock('../../utils/output', () => ({
+  writeOutput: vi.fn(),
+  printError: vi.fn((msg: string) => console.error('Error:', msg)),
+}));
 
 const mockExit = vi
   .spyOn(process, 'exit')

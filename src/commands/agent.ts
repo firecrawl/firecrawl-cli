@@ -379,7 +379,8 @@ export async function handleAgentCommand(options: AgentOptions): Promise<void> {
   const result = await executeAgent(options);
 
   if (!result.success) {
-    console.error('Error:', result.error);
+    const { printError } = await import('../utils/output');
+    printError(result.error || 'Unknown error');
     process.exit(1);
   }
 

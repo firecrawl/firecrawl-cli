@@ -7,6 +7,22 @@ import * as path from 'path';
 import type { ScrapeResult, ScrapeFormat } from '../types/scrape';
 
 /**
+ * Print an error message, appending an upgrade hint for 402 (insufficient credits) errors
+ */
+export function printError(message: string): void {
+  console.error('Error:', message);
+  if (
+    message.includes('status code 402') ||
+    message.toLowerCase().includes('insufficient credits') ||
+    message.toLowerCase().includes('insufficient tokens')
+  ) {
+    console.error(
+      '\nRun `firecrawl upgrade` to view plans and upgrade your account.'
+    );
+  }
+}
+
+/**
  * Determine if output should be JSON based on flag or file extension
  */
 function shouldOutputJson(outputPath?: string, jsonFlag?: boolean): boolean {
@@ -178,8 +194,7 @@ export function handleScrapeOutput(
   json: boolean = false
 ): void {
   if (!result.success) {
-    // Always use stderr for errors to allow piping
-    console.error('Error:', result.error);
+    printError(result.error || 'Unknown error');
     process.exit(1);
   }
 

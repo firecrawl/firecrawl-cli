@@ -218,7 +218,8 @@ export async function handleCrawlCommand(options: CrawlOptions): Promise<void> {
   const result = await executeCrawl(options);
 
   if (!result.success) {
-    console.error('Error:', result.error);
+    const { printError } = await import('../utils/output');
+    printError(result.error || 'Unknown error');
     process.exit(1);
   }
 

@@ -11,7 +11,7 @@ import {
   clearBrowserSession,
   getSessionId,
 } from '../utils/browser-session';
-import { writeOutput } from '../utils/output';
+import { writeOutput, printError } from '../utils/output';
 
 export interface BrowserLaunchOptions {
   ttl?: number;
@@ -79,7 +79,7 @@ export async function handleBrowserLaunch(
     const data = await app.browser(args);
 
     if (!data.success) {
-      console.error('Error:', data.error || 'Unknown error');
+      printError(data.error || 'Unknown error');
       process.exit(1);
     }
 
@@ -103,8 +103,7 @@ export async function handleBrowserLaunch(
       writeOutput(lines.join('\n'), options.output, !!options.output);
     }
   } catch (error) {
-    console.error(
-      'Error:',
+    printError(
       error instanceof Error ? error.message : 'Unknown error occurred'
     );
     process.exit(1);
@@ -251,7 +250,7 @@ export async function handleBrowserExecute(
     });
 
     if (!data.success) {
-      console.error('Error:', data.error || 'Unknown error');
+      printError(data.error || 'Unknown error');
       process.exit(1);
     }
 
@@ -283,8 +282,7 @@ export async function handleBrowserExecute(
         clearBrowserSession();
       }
     } else {
-      console.error(
-        'Error:',
+      printError(
         error instanceof Error ? error.message : 'Unknown error occurred'
       );
     }
@@ -306,7 +304,7 @@ export async function handleBrowserList(
     );
 
     if (!data.success) {
-      console.error('Error:', data.error || 'Unknown error');
+      printError(data.error || 'Unknown error');
       process.exit(1);
     }
 
@@ -334,8 +332,7 @@ export async function handleBrowserList(
       }
     }
   } catch (error) {
-    console.error(
-      'Error:',
+    printError(
       error instanceof Error ? error.message : 'Unknown error occurred'
     );
     process.exit(1);
@@ -357,7 +354,7 @@ export async function handleBrowserQuickExecute(
       const data = await app.browser({});
 
       if (!data.success) {
-        console.error('Error:', data.error || 'Failed to launch session');
+        printError(data.error || 'Failed to launch session');
         process.exit(1);
       }
 
@@ -370,8 +367,7 @@ export async function handleBrowserQuickExecute(
       // Print session info to stderr so it doesn't mix with command output
       console.error(`Session launched: ${data.id}`);
     } catch (error) {
-      console.error(
-        'Error:',
+      printError(
         error instanceof Error ? error.message : 'Failed to launch session'
       );
       process.exit(1);
@@ -408,7 +404,7 @@ export async function handleBrowserClose(
     const data = await app.deleteBrowser(sessionId);
 
     if (!data.success) {
-      console.error('Error:', data.error || 'Unknown error');
+      printError(data.error || 'Unknown error');
       process.exit(1);
     }
 
@@ -425,8 +421,7 @@ export async function handleBrowserClose(
       writeOutput(output, options.output, !!options.output);
     }
   } catch (error) {
-    console.error(
-      'Error:',
+    printError(
       error instanceof Error ? error.message : 'Unknown error occurred'
     );
     process.exit(1);

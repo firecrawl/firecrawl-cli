@@ -238,7 +238,8 @@ export async function handleSearchCommand(
   const result = await executeSearch(options);
 
   if (!result.success) {
-    console.error('Error:', result.error);
+    const { printError } = await import('../utils/output');
+    printError(result.error || 'Unknown error');
     process.exit(1);
   }
 
