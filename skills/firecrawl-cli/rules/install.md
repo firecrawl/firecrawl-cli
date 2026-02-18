@@ -6,7 +6,17 @@ description: |
 
 # Firecrawl CLI Installation
 
-## Installation
+## Quick Setup (Recommended)
+
+Install the CLI globally **and** add skills for AI coding agents in one command:
+
+```bash
+npx -y firecrawl-cli init
+```
+
+This installs `firecrawl-cli` globally, authenticates, and runs `skills add firecrawl/cli` automatically.
+
+## Manual Installation
 
 Check if firecrawl is already available:
 
@@ -18,6 +28,12 @@ If the command is not found, install via npm:
 
 ```bash
 npm install -g firecrawl-cli
+```
+
+Then install skills separately:
+
+```bash
+firecrawl setup skills
 ```
 
 ## Verify Installation

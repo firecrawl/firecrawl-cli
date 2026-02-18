@@ -8,16 +8,22 @@ Command-line interface for Firecrawl. Scrape, crawl, and extract data from any w
 npm install -g firecrawl-cli
 ```
 
-If you are using an AI coding agent like Claude Code, you can install the skill with:
+Or set up everything in one command (install CLI globally, authenticate, and add skills):
 
 ```bash
-firecrawl init skills
+npx -y firecrawl-cli init
+```
+
+If you are using an AI coding agent like Claude Code, you can install the skill individually with:
+
+```bash
+firecrawl setup skills
 ```
 
 To install the Firecrawl MCP server into your editors (Cursor, Claude Code, VS Code, etc.):
 
 ```bash
-firecrawl init mcp
+firecrawl setup mcp
 ```
 
 Or directly via npx:

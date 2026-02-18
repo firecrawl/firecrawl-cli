@@ -26,6 +26,8 @@ import { handleVersionCommand } from './commands/version';
 import { handleLoginCommand } from './commands/login';
 import { handleLogoutCommand } from './commands/logout';
 import { handleInitCommand } from './commands/init';
+import { handleSetupCommand } from './commands/setup';
+import type { SetupSubcommand } from './commands/setup';
 import { handleStatusCommand } from './commands/status';
 import { isUrl, normalizeUrl } from './utils/url';
 import { parseScrapeOptions } from './utils/options';
@@ -947,12 +949,42 @@ program
 
 program
   .command('init')
-  .description('Initialize firecrawl integrations (skills, mcp)')
-  .argument('<subcommand>', 'What to initialize: "skills" or "mcp"')
+  .description(
+    'Install CLI globally, authenticate, and add skills in one step (npx -y firecrawl-cli init)'
+  )
+  .option('-g, --global', 'Install skills globally (user-level)')
+  .option('-a, --agent <agent>', 'Install skills to a specific agent')
+  .option(
+    '-k, --api-key <key>',
+    'Authenticate with this API key (skips interactive login)'
+  )
+  .option(
+    '-b, --browser',
+    'Authenticate via browser without prompting (recommended for agents)'
+  )
+  .option('--skip-install', 'Skip global CLI installation')
+  .option('--skip-auth', 'Skip authentication')
+  .option('--skip-skills', 'Skip skills installation')
+  .action(async (options) => {
+    await handleInitCommand({
+      global: options.global,
+      agent: options.agent,
+      apiKey: options.apiKey,
+      browser: options.browser,
+      skipInstall: options.skipInstall,
+      skipAuth: options.skipAuth,
+      skipSkills: options.skipSkills,
+    });
+  });
+
+program
+  .command('setup')
+  .description('Set up individual firecrawl integrations (skills, mcp)')
+  .argument('<subcommand>', 'What to set up: "skills" or "mcp"')
   .option('-g, --global', 'Install globally (user-level)')
   .option('-a, --agent <agent>', 'Install to a specific agent')
-  .action(async (subcommand, options) => {
-    await handleInitCommand(subcommand, options);
+  .action(async (subcommand: SetupSubcommand, options) => {
+    await handleSetupCommand(subcommand, options);
   });
 
 program
