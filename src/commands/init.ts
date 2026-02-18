@@ -12,6 +12,8 @@ import { updateConfig } from '../utils/config';
 export interface InitOptions {
   global?: boolean;
   agent?: string;
+  all?: boolean;
+  yes?: boolean;
   skipInstall?: boolean;
   skipSkills?: boolean;
   skipAuth?: boolean;
@@ -120,6 +122,14 @@ export async function handleInitCommand(
     );
 
     const args = ['npx', '-y', 'skills', 'add', 'firecrawl/cli'];
+
+    if (options.all) {
+      args.push('--all');
+    }
+
+    if (options.yes || options.all) {
+      args.push('--yes');
+    }
 
     if (options.global) {
       args.push('--global');

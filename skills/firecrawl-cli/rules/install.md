@@ -9,7 +9,7 @@ description: |
 ## Quick Setup (Recommended)
 
 ```bash
-npx -y firecrawl-cli init
+npx -y firecrawl-cli init --all --browser
 ```
 
 This installs `firecrawl-cli` globally, authenticates, and adds skills automatically.
