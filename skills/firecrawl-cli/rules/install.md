@@ -64,7 +64,7 @@ Or set the environment variable:
 export FIRECRAWL_API_KEY="<their-key>"
 ```
 
-Tell them to add this export to `~/.zshrc` or `~/.bashrc` for persistence, then retry the original command.
+Retry the original command if the environment variable is set.
 
 ## Troubleshooting
 
