@@ -14,9 +14,9 @@ Or set up everything in one command (install CLI globally, authenticate, and add
 npx -y firecrawl-cli init
 ```
 
-### Manual installations
+### Setup Skills and MCP
 
-If you are using an AI coding agent like Claude Code, you can install the skill individually with:
+If you are using an AI coding agent like Claude Code, you can also install the skill individually with:
 
 ```bash
 firecrawl setup skills
