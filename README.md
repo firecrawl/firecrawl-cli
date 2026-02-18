@@ -14,6 +14,8 @@ Or set up everything in one command (install CLI globally, authenticate, and add
 npx -y firecrawl-cli init
 ```
 
+### Manual installations
+
 If you are using an AI coding agent like Claude Code, you can install the skill individually with:
 
 ```bash
@@ -77,6 +79,7 @@ export FIRECRAWL_API_KEY=fc-your-api-key
 # Per-command API key
 firecrawl scrape https://example.com --api-key fc-your-api-key
 ```
+
 
 ### Self-hosted / Local Development
 
