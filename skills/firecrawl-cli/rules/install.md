@@ -76,21 +76,6 @@ If `firecrawl` command is not found after installation:
 2. Try: `npx firecrawl-cli --version`
 3. Or reinstall: `npm install -g firecrawl-cli`
 
-### Permission errors
-
-If you get permission errors during installation:
-
-```bash
-# Option 1: Use sudo (not recommended)
-sudo npm install -g firecrawl-cli
-
-# Option 2: Fix npm permissions (recommended)
-mkdir ~/.npm-global
-npm config set prefix '~/.npm-global'
-export PATH=~/.npm-global/bin:$PATH
-# Add the export to your shell profile
-```
-
 ### Specific Instructions for Codex
 
 When a user selects to authenticate with a browser, run `firecrawl login --browser` to automatically open the browser for authentication without requiring interactive input.
