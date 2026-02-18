@@ -17,8 +17,6 @@ npx -y firecrawl-cli init --all --browser
 - `--all` installs the firecrawl skill to every detected AI coding agent
 - `--browser` opens the browser for Firecrawl authentication automatically
 
-Drop either flag to get interactive prompts instead.
-
 ### Setup Skills and MCP
 
 If you are using an AI coding agent like Claude Code, you can also install the skill individually with:
