@@ -11,7 +11,7 @@ npm install -g firecrawl-cli
 Or set up everything in one command (install CLI globally, authenticate, and add skills):
 
 ```bash
-npx -y firecrawl-cli init --all --browser
+npx -y firecrawl-cli@latest init --all --browser
 ```
 
 - `--all` installs the firecrawl skill to every detected AI coding agent
