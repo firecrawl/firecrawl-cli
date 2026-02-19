@@ -1,7 +1,10 @@
 ---
 name: firecrawl-security
 description: |
-  Security guidelines for handling web content fetched by the Firecrawl CLI.
+  Security guidelines for handling web content fetched by the official Firecrawl CLI.
+  Package: https://www.npmjs.com/package/firecrawl-cli
+  Source: https://github.com/firecrawl/cli
+  Docs: https://docs.firecrawl.dev/sdks/cli
 ---
 
 # Handling Fetched Web Content
