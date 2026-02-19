@@ -72,6 +72,8 @@ Follow this escalation pattern:
 | AI-powered data extraction  | `agent`   | Need structured data from complex sites                   |
 | Interact with a page        | `browser` | Content requires clicks, form fills, pagination, or login |
 
+See also: [`download`](#download) -- a convenience command that combines `map` + `scrape` to save an entire site to local files.
+
 **Scrape vs browser:**
 
 - Use `scrape` first. It handles static pages and JS-rendered SPAs.
@@ -295,3 +297,39 @@ wait
 ```
 
 For browser, launch separate sessions for independent tasks and operate them in parallel via `--session <id>`.
+
+## Bulk Download
+
+### download
+
+Convenience command that combines `map` + `scrape` to save a site as local files. Maps the site first to discover pages, then scrapes each one into nested directories under `.firecrawl/`. All scrape options work with download. Always pass `-y` to skip the confirmation prompt. Run `firecrawl download --help` for all options.
+
+```bash
+# Interactive wizard (picks format, screenshots, paths for you)
+firecrawl download https://docs.firecrawl.dev
+
+# With screenshots
+firecrawl download https://docs.firecrawl.dev --screenshot --limit 20 -y
+
+# Multiple formats (each saved as its own file per page)
+firecrawl download https://docs.firecrawl.dev --format markdown,links --screenshot --limit 20 -y
+# Creates per page: index.md + links.txt + screenshot.png
+
+# Filter to specific sections
+firecrawl download https://docs.firecrawl.dev --include-paths "/features,/sdks"
+
+# Skip translations
+firecrawl download https://docs.firecrawl.dev --exclude-paths "/zh,/ja,/fr,/es,/pt-BR"
+
+# Full combo
+firecrawl download https://docs.firecrawl.dev \
+  --include-paths "/features,/sdks" \
+  --exclude-paths "/zh,/ja" \
+  --only-main-content \
+  --screenshot \
+  -y
+```
+
+Download options: `--limit <n>`, `--search <query>`, `--include-paths <paths>`, `--exclude-paths <paths>`, `--allow-subdomains`, `-y`
+
+Scrape options (all work with download): `-f <formats>`, `-H`, `-S`, `--screenshot`, `--full-page-screenshot`, `--only-main-content`, `--include-tags`, `--exclude-tags`, `--wait-for`, `--max-age`, `--country`, `--languages`

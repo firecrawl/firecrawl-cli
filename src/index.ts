@@ -9,6 +9,7 @@ import { Command } from 'commander';
 import {
   handleScrapeCommand,
   handleMultiScrapeCommand,
+  handleAllScrapeCommand,
 } from './commands/scrape';
 import { initializeConfig, updateConfig } from './utils/config';
 import { getClient } from './utils/client';
@@ -46,6 +47,7 @@ initializeConfig();
 // Commands that require authentication
 const AUTH_REQUIRED_COMMANDS = [
   'scrape',
+  'download',
   'crawl',
   'map',
   'search',
@@ -98,7 +100,7 @@ program
 function createScrapeCommand(): Command {
   const scrapeCmd = new Command('scrape')
     .description(
-      'Scrape one or more URLs using Firecrawl. Multiple URLs are scraped concurrently and saved to .firecrawl/'
+      'Scrape one or more URLs. Multiple URLs are scraped concurrently and saved to .firecrawl/'
     )
     .argument('[urls...]', 'URL(s) to scrape')
     .option(
@@ -118,6 +120,7 @@ function createScrapeCommand(): Command {
     )
     .option('-S, --summary', 'Output summary (shortcut for --format summary)')
     .option('--screenshot', 'Take a screenshot', false)
+    .option('--full-page-screenshot', 'Take a full page screenshot', false)
     .option('--include-tags <tags>', 'Comma-separated list of tags to include')
     .option('--exclude-tags <tags>', 'Comma-separated list of tags to exclude')
     .option(
@@ -146,6 +149,7 @@ function createScrapeCommand(): Command {
       '--languages <codes>',
       'Comma-separated language codes for scraping (e.g., en,es)'
     )
+
     .action(async (positionalArgs, options) => {
       // Collect URLs from positional args and --url option
       let urls: string[] = [];
@@ -189,19 +193,15 @@ function createScrapeCommand(): Command {
         format = 'markdown';
       }
 
+      const scrapeOptions = parseScrapeOptions({
+        ...options,
+        url: urls[0],
+        format,
+      });
+
       if (urls.length === 1) {
-        const scrapeOptions = parseScrapeOptions({
-          ...options,
-          url: urls[0],
-          format,
-        });
         await handleScrapeCommand(scrapeOptions);
       } else {
-        const scrapeOptions = parseScrapeOptions({
-          ...options,
-          url: urls[0],
-          format,
-        });
         await handleMultiScrapeCommand(urls, scrapeOptions);
       }
     });
@@ -211,6 +211,100 @@ function createScrapeCommand(): Command {
 
 // Add scrape command to main program
 program.addCommand(createScrapeCommand());
+
+/**
+ * Create and configure the download command
+ */
+function createDownloadCommand(): Command {
+  const downloadCmd = new Command('download')
+    .description(
+      'Download a site into .firecrawl/ as nested directories. Maps the site first to discover pages, then scrapes them.'
+    )
+    .argument('<url>', 'URL of the site to download')
+    .option('--limit <number>', 'Max pages to download', parseInt)
+    .option('--search <query>', 'Filter pages by search query')
+    .option(
+      '--include-paths <paths>',
+      'Only download URLs matching these paths (comma-separated, e.g. "/docs,/blog")'
+    )
+    .option(
+      '--exclude-paths <paths>',
+      'Skip URLs matching these paths (comma-separated, e.g. "/zh,/ja,/fr,/es")'
+    )
+    .option('--allow-subdomains', 'Include subdomains', false)
+    .option(
+      '-f, --format <formats>',
+      'Output format(s), comma-separated (default: markdown). Available: markdown, html, rawHtml, links, images, summary, json'
+    )
+    .option('-H, --html', 'Download as HTML (shortcut for --format html)')
+    .option(
+      '-S, --summary',
+      'Download as summary (shortcut for --format summary)'
+    )
+    .option('--only-main-content', 'Include only main content', false)
+    .option(
+      '--wait-for <ms>',
+      'Wait time before scraping in milliseconds',
+      parseInt
+    )
+    .option('--screenshot', 'Take a screenshot', false)
+    .option('--full-page-screenshot', 'Take a full page screenshot', false)
+    .option('--include-tags <tags>', 'Comma-separated list of tags to include')
+    .option('--exclude-tags <tags>', 'Comma-separated list of tags to exclude')
+    .option(
+      '--max-age <milliseconds>',
+      'Maximum age of cached content in milliseconds',
+      parseInt
+    )
+    .option(
+      '--country <code>',
+      'ISO country code for geo-targeted scraping (e.g., US, DE, BR)'
+    )
+    .option(
+      '--languages <codes>',
+      'Comma-separated language codes for scraping (e.g., en,es)'
+    )
+    .option('-y, --yes', 'Skip confirmation prompt', false)
+    .option(
+      '-k, --api-key <key>',
+      'Firecrawl API key (overrides global --api-key)'
+    )
+    .option('--api-url <url>', 'API URL (overrides global --api-url)')
+    .action(async (url, options) => {
+      let format = 'markdown';
+      if (options.html) {
+        format = 'html';
+      } else if (options.summary) {
+        format = 'summary';
+      } else if (options.format) {
+        format = options.format;
+      }
+
+      const scrapeOptions = parseScrapeOptions({
+        ...options,
+        url: normalizeUrl(url),
+        format,
+      });
+
+      await handleAllScrapeCommand(normalizeUrl(url), scrapeOptions, {
+        limit: options.limit,
+        yes: options.yes,
+        search: options.search,
+        includePaths: options.includePaths
+          ?.split(',')
+          .map((p: string) => p.trim()),
+        excludePaths: options.excludePaths
+          ?.split(',')
+          .map((p: string) => p.trim()),
+        allowSubdomains: options.allowSubdomains,
+      });
+    });
+
+  return downloadCmd;
+}
+
+// Add download command to main program
+program.addCommand(createDownloadCommand());
 
 /**
  * Create and configure the crawl command

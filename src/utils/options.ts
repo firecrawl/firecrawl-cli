@@ -96,6 +96,7 @@ export function parseScrapeOptions(options: any): ScrapeOptions {
     onlyMainContent: options.onlyMainContent,
     waitFor: options.waitFor,
     screenshot: options.screenshot,
+    fullPageScreenshot: options.fullPageScreenshot,
     includeTags: options.includeTags
       ? options.includeTags.split(',').map((t: string) => t.trim())
       : undefined,

@@ -64,6 +64,7 @@
     "vitest": "^4.0.0"
   },
   "dependencies": {
+    "@inquirer/prompts": "^8.2.1",
     "@mendable/firecrawl-js": "4.13.0",
     "commander": "^14.0.2"
   }
