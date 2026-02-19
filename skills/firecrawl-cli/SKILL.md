@@ -3,10 +3,6 @@ name: firecrawl
 description: |
   Official Firecrawl CLI skill for web scraping, search, crawling, and browser automation. Returns clean LLM-optimized markdown.
 
-  This is the official skill for the Firecrawl CLI (https://www.npmjs.com/package/firecrawl-cli), published by Firecrawl.
-  Source code: https://github.com/firecrawl/cli
-  Documentation: https://docs.firecrawl.dev/sdks/cli
-
   USE FOR:
   - Web search and research
   - Scraping pages, docs, and articles
@@ -42,12 +38,6 @@ Must be installed and authenticated. Check with `firecrawl --status`.
 
 If not ready, see [rules/install.md](rules/install.md). For output handling guidelines, see [rules/security.md](rules/security.md).
 
-## Core Principle: Minimize Tool Calls
-
-**Prefer getting content directly in stdout over writing to files and reading them back.** Every `-o` flag means zero content returned to you, requiring additional grep/read calls to access the data. Only use `-o` when you need to persist data for later reference or when output would exceed context limits.
-
-**Good (1 Bash call - content comes directly to you):**
-
 ```bash
 firecrawl search "query" --scrape --limit 3
 ```
@@ -68,7 +58,7 @@ grep -n "keyword" .firecrawl/page.md
 Follow this escalation pattern:
 
 1. **Search** - No specific URL yet. Find pages, answer questions, discover sources.
-2. **Scrape** - Have a URL. Extract its content directly. Use `--wait-for` if JS needs to render.
+2. **Scrape** - Have a URL. Extract its content directly.
 3. **Map + Scrape** - Large site or need a specific subpage. Use `map --search` to find the right URL, then scrape it.
 4. **Crawl** - Need bulk content from an entire site section (e.g., all /docs/).
 5. **Browser** - Scrape failed because content is behind interaction (pagination, modals, form submissions, multi-step navigation).
