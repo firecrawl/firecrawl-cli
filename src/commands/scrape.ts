@@ -205,12 +205,12 @@ export async function handleMultiScrapeCommand(
     const scrapeOptions: ScrapeOptions = { ...options, url };
     const result = await executeScrape(scrapeOptions);
 
-    completedCount++;
+    const currentCount = ++completedCount;
 
     if (!result.success) {
       errorCount++;
       process.stderr.write(
-        `[${completedCount}/${total}] Error: ${url} - ${result.error}\n`
+        `[${currentCount}/${total}] Error: ${url} - ${result.error}\n`
       );
       return;
     }
@@ -220,7 +220,7 @@ export async function handleMultiScrapeCommand(
     const content = result.data?.markdown || JSON.stringify(result.data);
     fs.writeFileSync(filepath, content, 'utf-8');
 
-    process.stderr.write(`[${completedCount}/${total}] Saved: ${filepath}\n`);
+    process.stderr.write(`[${currentCount}/${total}] Saved: ${filepath}\n`);
   });
 
   await Promise.all(promises);
@@ -530,12 +530,12 @@ export async function handleAllScrapeCommand(
     const scrapeOptions: ScrapeOptions = { ...options, url };
     const result = await executeScrape(scrapeOptions);
 
-    completedCount++;
+    const currentCount = ++completedCount;
 
     if (!result.success) {
       errorCount++;
       process.stderr.write(
-        `[${completedCount}/${total}] Error: ${url} - ${result.error}\n`
+        `[${currentCount}/${total}] Error: ${url} - ${result.error}\n`
       );
       return;
     }
@@ -624,7 +624,7 @@ export async function handleAllScrapeCommand(
     }
 
     process.stderr.write(
-      `[${completedCount}/${total}] Saved: ${dir}/ (${savedFiles.length} files)\n`
+      `[${currentCount}/${total}] Saved: ${dir}/ (${savedFiles.length} files)\n`
     );
   };
 
