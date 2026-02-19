@@ -105,9 +105,9 @@ When using a custom API URL (anything other than `https://api.firecrawl.dev`), a
 
 ## Commands
 
-### `scrape` - Scrape a single URL
+### `scrape` - Scrape URLs
 
-Extract content from any webpage in various formats.
+Extract content from any webpage. Pass multiple URLs to scrape them concurrently -- each result is saved to `.firecrawl/` automatically.
 
 ```bash
 # Basic usage (outputs markdown)
@@ -124,6 +124,9 @@ firecrawl https://example.com --format markdown,links,images
 # Save to file
 firecrawl https://example.com -o output.md
 firecrawl https://example.com --format json -o data.json --pretty
+
+# Multiple URLs (scraped concurrently, each saved to .firecrawl/)
+firecrawl scrape https://firecrawl.dev https://firecrawl.dev/blog https://docs.firecrawl.dev
 ```
 
 #### Scrape Options
@@ -638,13 +641,8 @@ firecrawl https://example.com --format markdown,links,images
 ### Scrape multiple URLs
 
 ```bash
-# Using a loop
-for url in https://example.com/page1 https://example.com/page2; do
-  firecrawl "$url" -o "$(echo $url | sed 's/[^a-zA-Z0-9]/_/g').md"
-done
-
-# From a file
-cat urls.txt | xargs -I {} firecrawl {} -o {}.md
+# Just pass multiple URLs -- results are saved to .firecrawl/
+firecrawl scrape https://firecrawl.dev https://firecrawl.dev/blog https://docs.firecrawl.dev
 ```
 
 ### Combine with other tools

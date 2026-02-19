@@ -6,7 +6,10 @@
  */
 
 import { Command } from 'commander';
-import { handleScrapeCommand } from './commands/scrape';
+import {
+  handleScrapeCommand,
+  handleMultiScrapeCommand,
+} from './commands/scrape';
 import { initializeConfig, updateConfig } from './utils/config';
 import { getClient } from './utils/client';
 import { configure, viewConfig } from './commands/config';
@@ -94,12 +97,10 @@ program
  */
 function createScrapeCommand(): Command {
   const scrapeCmd = new Command('scrape')
-    .description('Scrape a URL using Firecrawl')
-    .argument('[url]', 'URL to scrape')
-    .argument(
-      '[formats...]',
-      'Output format(s) as positional args (e.g., markdown screenshot links)'
+    .description(
+      'Scrape one or more URLs using Firecrawl. Multiple URLs are scraped concurrently and saved to .firecrawl/'
     )
+    .argument('[urls...]', 'URL(s) to scrape')
     .option(
       '-u, --url <url>',
       'URL to scrape (alternative to positional argument)'
@@ -145,37 +146,64 @@ function createScrapeCommand(): Command {
       '--languages <codes>',
       'Comma-separated language codes for scraping (e.g., en,es)'
     )
-    .action(async (positionalUrl, positionalFormats, options) => {
-      // Use positional URL if provided, otherwise use --url option
-      const url = positionalUrl || options.url;
-      if (!url) {
+    .action(async (positionalArgs, options) => {
+      // Collect URLs from positional args and --url option
+      let urls: string[] = [];
+
+      if (positionalArgs && positionalArgs.length > 0) {
+        for (const arg of positionalArgs) {
+          if (isUrl(arg)) {
+            urls.push(normalizeUrl(arg));
+          }
+        }
+      }
+
+      if (options.url) {
+        urls.push(normalizeUrl(options.url));
+      }
+
+      // Remove duplicates
+      urls = [...new Set(urls)];
+
+      if (urls.length === 0) {
         console.error(
           'Error: URL is required. Provide it as argument or use --url option.'
         );
         process.exit(1);
       }
 
-      // Merge formats: positional formats take precedence, then --format flag, then default to markdown
+      // Determine format
       let format: string;
-      if (positionalFormats && positionalFormats.length > 0) {
-        // Positional formats: join them with commas for parseFormats
+      const positionalFormats = (positionalArgs || []).filter(
+        (arg: string) => !isUrl(arg)
+      );
+      if (positionalFormats.length > 0) {
         format = positionalFormats.join(',');
       } else if (options.html) {
-        // Handle --html shortcut flag
         format = 'html';
       } else if (options.summary) {
-        // Handle --summary shortcut flag
         format = 'summary';
       } else if (options.format) {
-        // Use --format option
         format = options.format;
       } else {
-        // Default to markdown
         format = 'markdown';
       }
 
-      const scrapeOptions = parseScrapeOptions({ ...options, url, format });
-      await handleScrapeCommand(scrapeOptions);
+      if (urls.length === 1) {
+        const scrapeOptions = parseScrapeOptions({
+          ...options,
+          url: urls[0],
+          format,
+        });
+        await handleScrapeCommand(scrapeOptions);
+      } else {
+        const scrapeOptions = parseScrapeOptions({
+          ...options,
+          url: urls[0],
+          format,
+        });
+        await handleMultiScrapeCommand(urls, scrapeOptions);
+      }
     });
 
   return scrapeCmd;

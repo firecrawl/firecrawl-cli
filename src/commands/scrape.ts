@@ -157,3 +157,79 @@ export async function handleScrapeCommand(
     options.json
   );
 }
+
+/**
+ * Generate a filename from a URL for saving to .firecrawl/
+ */
+function urlToFilename(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, '');
+    const pathPart = parsed.pathname
+      .replace(/^\/|\/$/g, '')
+      .replace(/\//g, '-');
+    if (!pathPart) return `${host}.md`;
+    return `${host}-${pathPart}.md`;
+  } catch {
+    return url.replace(/[^a-zA-Z0-9.-]/g, '_') + '.md';
+  }
+}
+
+/**
+ * Handle scrape for multiple URLs.
+ * Each result is saved as a separate file in .firecrawl/
+ */
+export async function handleMultiScrapeCommand(
+  urls: string[],
+  options: ScrapeOptions
+): Promise<void> {
+  const fs = await import('fs');
+  const path = await import('path');
+
+  const dir = '.firecrawl';
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  let completedCount = 0;
+  let errorCount = 0;
+  const total = urls.length;
+
+  process.stderr.write(`Scraping ${total} URLs...\n`);
+
+  const promises = urls.map(async (url) => {
+    const scrapeOptions: ScrapeOptions = { ...options, url };
+    const result = await executeScrape(scrapeOptions);
+
+    completedCount++;
+
+    if (!result.success) {
+      errorCount++;
+      process.stderr.write(
+        `[${completedCount}/${total}] Error: ${url} - ${result.error}\n`
+      );
+      return;
+    }
+
+    const filename = urlToFilename(url);
+    const filepath = path.join(dir, filename);
+    const content = result.data?.markdown || JSON.stringify(result.data);
+    fs.writeFileSync(filepath, content, 'utf-8');
+
+    process.stderr.write(`[${completedCount}/${total}] Saved: ${filepath}\n`);
+  });
+
+  await Promise.all(promises);
+
+  process.stderr.write(
+    `\nCompleted: ${completedCount - errorCount}/${total} succeeded`
+  );
+  if (errorCount > 0) {
+    process.stderr.write(`, ${errorCount} failed`);
+  }
+  process.stderr.write('\n');
+
+  if (errorCount === total) {
+    process.exit(1);
+  }
+}
