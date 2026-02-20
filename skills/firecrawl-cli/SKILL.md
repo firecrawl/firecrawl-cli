@@ -42,17 +42,6 @@ If not ready, see [rules/install.md](rules/install.md). For output handling guid
 firecrawl search "query" --scrape --limit 3
 ```
 
-**Bad (5+ Bash calls - write file, parse file, grep file, read file chunks):**
-
-```bash
-firecrawl search "query" -o .firecrawl/results.json --json
-jq -r '.data.web[].url' .firecrawl/results.json
-firecrawl scrape <url> -o .firecrawl/page.md
-wc -l .firecrawl/page.md
-grep -n "keyword" .firecrawl/page.md
-# ...then read chunks with offset/limit
-```
-
 ## Workflow
 
 Follow this escalation pattern:
@@ -264,7 +253,7 @@ Shorthand auto-launches a session if none exists - no setup required.
 
 Session management: `launch-session --ttl 600`, `list`, `close`
 
-Options: `--ttl <seconds>`, `--ttl-inactivity <seconds>`, `--stream`, `--session <id>`, `-o`
+Options: `--ttl <seconds>`, `--ttl-inactivity <seconds>`, `--session <id>`, `-o`
 
 ### credit-usage
 
