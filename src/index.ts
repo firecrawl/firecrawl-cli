@@ -784,7 +784,6 @@ Explicit subcommands:
       parseInt
     )
     .option('--ttl-inactivity <seconds>', 'Inactivity TTL in seconds', parseInt)
-    .option('--stream', 'Enable live view streaming', false)
     .option(
       '-k, --api-key <key>',
       'Firecrawl API key (overrides global --api-key)'
@@ -804,7 +803,7 @@ Output:
 
 Examples:
   $ firecrawl browser launch-session
-  $ firecrawl browser launch-session --stream --ttl 600
+  $ firecrawl browser launch-session --ttl 600
   $ firecrawl browser launch-session --ttl 300 --ttl-inactivity 60
   $ firecrawl browser launch-session -o session.json --json
 `
@@ -813,7 +812,6 @@ Examples:
       await handleBrowserLaunch({
         ttl: options.ttl,
         ttlInactivity: options.ttlInactivity,
-        stream: options.stream,
         apiKey: options.apiKey,
         apiUrl: options.apiUrl,
         output: options.output,
