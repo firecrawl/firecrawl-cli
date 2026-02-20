@@ -42,17 +42,6 @@ If not ready, see [rules/install.md](rules/install.md). For output handling guid
 firecrawl search "query" --scrape --limit 3
 ```
 
-**Bad (5+ Bash calls - write file, parse file, grep file, read file chunks):**
-
-```bash
-firecrawl search "query" -o .firecrawl/results.json --json
-jq -r '.data.web[].url' .firecrawl/results.json
-firecrawl scrape <url> -o .firecrawl/page.md
-wc -l .firecrawl/page.md
-grep -n "keyword" .firecrawl/page.md
-# ...then read chunks with offset/limit
-```
-
 ## Workflow
 
 Follow this escalation pattern:
@@ -71,6 +60,8 @@ Follow this escalation pattern:
 | Bulk extract a site section | `crawl`   | Need many pages (e.g., all /docs/)                        |
 | AI-powered data extraction  | `agent`   | Need structured data from complex sites                   |
 | Interact with a page        | `browser` | Content requires clicks, form fills, pagination, or login |
+
+See also: [`download`](#download) -- a convenience command that combines `map` + `scrape` to save an entire site to local files.
 
 **Scrape vs browser:**
 
@@ -160,7 +151,7 @@ Options: `--limit <n>`, `--sources <web,images,news>`, `--categories <github,res
 
 ### scrape
 
-Single page content extraction. Run `firecrawl scrape --help` for all options.
+Scrape one or more URLs. Multiple URLs are scraped concurrently and each result is saved to `.firecrawl/`. Run `firecrawl scrape --help` for all options.
 
 ```bash
 # Basic markdown extraction
@@ -171,6 +162,9 @@ firecrawl scrape "<url>" --only-main-content -o .firecrawl/page.md
 
 # Wait for JS to render, then scrape
 firecrawl scrape "<url>" --wait-for 3000 -o .firecrawl/page.md
+
+# Multiple URLs (each saved to .firecrawl/)
+firecrawl scrape https://firecrawl.dev https://firecrawl.dev/blog https://docs.firecrawl.dev
 
 # Get markdown and links together
 firecrawl scrape "<url>" --format markdown,links -o .firecrawl/page.json
@@ -259,7 +253,7 @@ Shorthand auto-launches a session if none exists - no setup required.
 
 Session management: `launch-session --ttl 600`, `list`, `close`
 
-Options: `--ttl <seconds>`, `--ttl-inactivity <seconds>`, `--stream`, `--session <id>`, `-o`
+Options: `--ttl <seconds>`, `--ttl-inactivity <seconds>`, `--session <id>`, `-o`
 
 ### credit-usage
 
@@ -292,3 +286,39 @@ wait
 ```
 
 For browser, launch separate sessions for independent tasks and operate them in parallel via `--session <id>`.
+
+## Bulk Download
+
+### download
+
+Convenience command that combines `map` + `scrape` to save a site as local files. Maps the site first to discover pages, then scrapes each one into nested directories under `.firecrawl/`. All scrape options work with download. Always pass `-y` to skip the confirmation prompt. Run `firecrawl download --help` for all options.
+
+```bash
+# Interactive wizard (picks format, screenshots, paths for you)
+firecrawl download https://docs.firecrawl.dev
+
+# With screenshots
+firecrawl download https://docs.firecrawl.dev --screenshot --limit 20 -y
+
+# Multiple formats (each saved as its own file per page)
+firecrawl download https://docs.firecrawl.dev --format markdown,links --screenshot --limit 20 -y
+# Creates per page: index.md + links.txt + screenshot.png
+
+# Filter to specific sections
+firecrawl download https://docs.firecrawl.dev --include-paths "/features,/sdks"
+
+# Skip translations
+firecrawl download https://docs.firecrawl.dev --exclude-paths "/zh,/ja,/fr,/es,/pt-BR"
+
+# Full combo
+firecrawl download https://docs.firecrawl.dev \
+  --include-paths "/features,/sdks" \
+  --exclude-paths "/zh,/ja" \
+  --only-main-content \
+  --screenshot \
+  -y
+```
+
+Download options: `--limit <n>`, `--search <query>`, `--include-paths <paths>`, `--exclude-paths <paths>`, `--allow-subdomains`, `-y`
+
+Scrape options (all work with download): `-f <formats>`, `-H`, `-S`, `--screenshot`, `--full-page-screenshot`, `--only-main-content`, `--include-tags`, `--exclude-tags`, `--wait-for`, `--max-age`, `--country`, `--languages`

@@ -33,6 +33,8 @@ export interface ScrapeOptions {
   waitFor?: number;
   /** Take screenshot */
   screenshot?: boolean;
+  /** Take full page screenshot */
+  fullPageScreenshot?: boolean;
   /** Include tags */
   includeTags?: string[];
   /** Exclude tags */

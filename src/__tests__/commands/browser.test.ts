@@ -108,7 +108,7 @@ describe('Browser Commands', () => {
       'stored-session-id',
       {
         code: 'await page.title()',
-        language: 'python',
+        language: 'bash',
       }
     );
   });

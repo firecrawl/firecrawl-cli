@@ -16,7 +16,6 @@ import { writeOutput } from '../utils/output';
 export interface BrowserLaunchOptions {
   ttl?: number;
   ttlInactivity?: number;
-  stream?: boolean;
   apiKey?: string;
   apiUrl?: string;
   output?: string;
@@ -69,12 +68,10 @@ export async function handleBrowserLaunch(
     const args: {
       ttl?: number;
       activityTtl?: number;
-      streamWebView?: boolean;
     } = {};
     if (options.ttl !== undefined) args.ttl = options.ttl;
     if (options.ttlInactivity !== undefined)
       args.activityTtl = options.ttlInactivity;
-    if (options.stream !== undefined) args.streamWebView = options.stream;
 
     const data = await app.browser(args);
 
@@ -164,90 +161,13 @@ function isSessionExpiredError(error: unknown): boolean {
 export async function handleBrowserExecute(
   options: BrowserExecuteOptions
 ): Promise<void> {
-  // Bash execution runs locally — skip the API entirely
-  if (options.language === 'bash') {
-    try {
-      let session: { id: string; cdpUrl: string } | null = null;
-
-      if (options.session) {
-        const stored = loadBrowserSession();
-        if (stored && stored.id === options.session) {
-          session = stored;
-        } else {
-          // Fetch CDP URL from the API for the specified session
-          const app = getClient({
-            apiKey: options.apiKey,
-            apiUrl: options.apiUrl,
-          });
-          const list = await app.listBrowsers({ status: 'active' });
-          const match = list.sessions?.find(
-            (s: { id: string }) => s.id === options.session
-          );
-          if (match && match.cdpUrl) {
-            session = { id: match.id, cdpUrl: match.cdpUrl };
-          } else {
-            console.error(
-              `Error: Session ${options.session} not found or not active.`
-            );
-            process.exit(1);
-            return;
-          }
-        }
-      } else {
-        session = loadBrowserSession();
-      }
-
-      if (!session) {
-        console.error(
-          'Error: No active browser session. Run `firecrawl browser launch` first.'
-        );
-        process.exit(1);
-        return;
-      }
-
-      const result = await executeBashLocally(options.code, session);
-
-      if (result.exitCode !== 0) {
-        if (result.stderr) process.stderr.write(result.stderr);
-        if (result.stdout) process.stdout.write(result.stdout);
-        process.exit(1);
-      }
-
-      if (options.json) {
-        const data = {
-          success: true,
-          result: result.stdout.trimEnd(),
-          exitCode: result.exitCode,
-        };
-        const output = JSON.stringify(data, null, 2);
-        writeOutput(output, options.output, !!options.output);
-      } else {
-        if (result.stdout) {
-          writeOutput(
-            result.stdout.trimEnd(),
-            options.output,
-            !!options.output
-          );
-        }
-      }
-    } catch (error) {
-      console.error(
-        'Error:',
-        error instanceof Error ? error.message : 'Unknown error occurred'
-      );
-      process.exit(1);
-    }
-
-    return;
-  }
-
   try {
     const sessionId = getSessionId(options.session);
     const app = getClient({ apiKey: options.apiKey, apiUrl: options.apiUrl });
 
     const data = await app.browserExecute(sessionId, {
       code: options.code,
-      language: options.language || 'python',
+      language: options.language || 'bash',
     });
 
     if (!data.success) {
@@ -256,7 +176,6 @@ export async function handleBrowserExecute(
     }
 
     if (data.error) {
-      // Execution succeeded but code had an error
       process.stderr.write(`Code error: ${data.error}\n`);
     }
 
@@ -264,8 +183,9 @@ export async function handleBrowserExecute(
       const output = JSON.stringify(data, null, 2);
       writeOutput(output, options.output, !!options.output);
     } else {
-      if (data.result !== undefined && data.result !== '') {
-        writeOutput(data.result, options.output, !!options.output);
+      const result = data.stdout || data.result || '';
+      if (result) {
+        writeOutput(result.trimEnd(), options.output, !!options.output);
       }
     }
   } catch (error) {
@@ -277,7 +197,6 @@ export async function handleBrowserExecute(
           'The session may have exceeded its TTL or been closed.\n' +
           'Start a new session with: firecrawl browser launch'
       );
-      // Clear stale stored session
       const stored = loadBrowserSession();
       if (stored && !options.session) {
         clearBrowserSession();

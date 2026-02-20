@@ -105,9 +105,9 @@ When using a custom API URL (anything other than `https://api.firecrawl.dev`), a
 
 ## Commands
 
-### `scrape` - Scrape a single URL
+### `scrape` - Scrape URLs
 
-Extract content from any webpage in various formats.
+Extract content from any webpage. Pass multiple URLs to scrape them concurrently -- each result is saved to `.firecrawl/` automatically.
 
 ```bash
 # Basic usage (outputs markdown)
@@ -124,6 +124,9 @@ firecrawl https://example.com --format markdown,links,images
 # Save to file
 firecrawl https://example.com -o output.md
 firecrawl https://example.com --format json -o data.json --pretty
+
+# Multiple URLs (scraped concurrently, each saved to .firecrawl/)
+firecrawl scrape https://firecrawl.dev https://firecrawl.dev/blog https://docs.firecrawl.dev
 ```
 
 #### Scrape Options
@@ -136,6 +139,7 @@ firecrawl https://example.com --format json -o data.json --pretty
 | `--only-main-content`      | Extract only main content (removes navs, footers, etc.) |
 | `--wait-for <ms>`          | Wait time before scraping (for JS-rendered content)     |
 | `--screenshot`             | Take a screenshot                                       |
+| `--full-page-screenshot`   | Take a full page screenshot                             |
 | `--include-tags <tags>`    | Only include specific HTML tags                         |
 | `--exclude-tags <tags>`    | Exclude specific HTML tags                              |
 | `--max-age <milliseconds>` | Maximum age of cached content in milliseconds           |
@@ -638,13 +642,8 @@ firecrawl https://example.com --format markdown,links,images
 ### Scrape multiple URLs
 
 ```bash
-# Using a loop
-for url in https://example.com/page1 https://example.com/page2; do
-  firecrawl "$url" -o "$(echo $url | sed 's/[^a-zA-Z0-9]/_/g').md"
-done
-
-# From a file
-cat urls.txt | xargs -I {} firecrawl {} -o {}.md
+# Just pass multiple URLs -- results are saved to .firecrawl/
+firecrawl scrape https://firecrawl.dev https://firecrawl.dev/blog https://docs.firecrawl.dev
 ```
 
 ### Combine with other tools
@@ -670,6 +669,83 @@ firecrawl crawl https://docs.example.com --wait -o docs.json
 # Use self-hosted instance
 export FIRECRAWL_API_URL=${{ secrets.FIRECRAWL_API_URL }}
 firecrawl scrape https://example.com -o output.md
+```
+
+---
+
+## `download` - Bulk Site Download
+
+A convenience command that combines `map` + `scrape` to save a site as local files. Maps the site first to discover pages, then scrapes each one into nested directories under `.firecrawl/`. All [scrape options](#scrape-options) work with download. Run without flags for an interactive wizard that walks you through format, screenshot, and path selection.
+
+```bash
+# Interactive wizard (picks format, screenshots, paths for you)
+firecrawl download https://docs.firecrawl.dev
+
+# Download with screenshots
+firecrawl download https://docs.firecrawl.dev --screenshot --limit 20 -y
+
+# Full page screenshots
+firecrawl download https://docs.firecrawl.dev --full-page-screenshot --limit 20 -y
+
+# Multiple formats (each saved as its own file per page)
+firecrawl download https://docs.firecrawl.dev --format markdown,links --screenshot --limit 20 -y
+# Creates per page: index.md + links.txt + screenshot.png
+
+# Download as HTML
+firecrawl download https://docs.firecrawl.dev --html --limit 20 -y
+
+# Main content only
+firecrawl download https://docs.firecrawl.dev --only-main-content --limit 50 -y
+
+# Filter to specific paths
+firecrawl download https://docs.firecrawl.dev --include-paths "/features,/sdks"
+
+# Skip localized pages
+firecrawl download https://docs.firecrawl.dev --exclude-paths "/zh,/ja,/fr,/es,/pt-BR"
+
+# Include subdomains
+firecrawl download https://firecrawl.dev --allow-subdomains
+
+# Combine everything
+firecrawl download https://docs.firecrawl.dev \
+  --include-paths "/features,/sdks" \
+  --exclude-paths "/zh,/ja,/fr,/es,/pt-BR" \
+  --only-main-content \
+  --screenshot \
+  -y
+```
+
+#### Download Options
+
+| Option                    | Description                                    |
+| ------------------------- | ---------------------------------------------- |
+| `--limit <number>`        | Max pages to download                          |
+| `--search <query>`        | Filter pages by search query                   |
+| `--include-paths <paths>` | Only download matching paths (comma-separated) |
+| `--exclude-paths <paths>` | Skip matching paths (comma-separated)          |
+| `--allow-subdomains`      | Include subdomains when mapping                |
+| `-y, --yes`               | Skip confirmation prompt and wizard            |
+
+All [scrape options](#scrape-options) also work with download (formats, screenshots, tags, geo-targeting, etc.)
+
+#### Output Structure
+
+Each format is saved as its own file per page:
+
+```
+.firecrawl/
+  docs.firecrawl.dev/
+    features/
+      scrape/
+        index.md           # markdown content
+        links.txt          # one link per line
+        screenshot.png     # actual PNG image
+      crawl/
+        index.md
+        screenshot.png
+    sdks/
+      python/
+        index.md
 ```
 
 ---

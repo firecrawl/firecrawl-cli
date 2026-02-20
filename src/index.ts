@@ -6,7 +6,11 @@
  */
 
 import { Command } from 'commander';
-import { handleScrapeCommand } from './commands/scrape';
+import {
+  handleScrapeCommand,
+  handleMultiScrapeCommand,
+  handleAllScrapeCommand,
+} from './commands/scrape';
 import { initializeConfig, updateConfig } from './utils/config';
 import { getClient } from './utils/client';
 import { configure, viewConfig } from './commands/config';
@@ -43,6 +47,7 @@ initializeConfig();
 // Commands that require authentication
 const AUTH_REQUIRED_COMMANDS = [
   'scrape',
+  'download',
   'crawl',
   'map',
   'search',
@@ -94,12 +99,10 @@ program
  */
 function createScrapeCommand(): Command {
   const scrapeCmd = new Command('scrape')
-    .description('Scrape a URL using Firecrawl')
-    .argument('[url]', 'URL to scrape')
-    .argument(
-      '[formats...]',
-      'Output format(s) as positional args (e.g., markdown screenshot links)'
+    .description(
+      'Scrape one or more URLs. Multiple URLs are scraped concurrently and saved to .firecrawl/'
     )
+    .argument('[urls...]', 'URL(s) to scrape')
     .option(
       '-u, --url <url>',
       'URL to scrape (alternative to positional argument)'
@@ -117,6 +120,7 @@ function createScrapeCommand(): Command {
     )
     .option('-S, --summary', 'Output summary (shortcut for --format summary)')
     .option('--screenshot', 'Take a screenshot', false)
+    .option('--full-page-screenshot', 'Take a full page screenshot', false)
     .option('--include-tags <tags>', 'Comma-separated list of tags to include')
     .option('--exclude-tags <tags>', 'Comma-separated list of tags to exclude')
     .option(
@@ -145,37 +149,61 @@ function createScrapeCommand(): Command {
       '--languages <codes>',
       'Comma-separated language codes for scraping (e.g., en,es)'
     )
-    .action(async (positionalUrl, positionalFormats, options) => {
-      // Use positional URL if provided, otherwise use --url option
-      const url = positionalUrl || options.url;
-      if (!url) {
+
+    .action(async (positionalArgs, options) => {
+      // Collect URLs from positional args and --url option
+      let urls: string[] = [];
+
+      if (positionalArgs && positionalArgs.length > 0) {
+        for (const arg of positionalArgs) {
+          if (isUrl(arg)) {
+            urls.push(normalizeUrl(arg));
+          }
+        }
+      }
+
+      if (options.url) {
+        urls.push(normalizeUrl(options.url));
+      }
+
+      // Remove duplicates
+      urls = [...new Set(urls)];
+
+      if (urls.length === 0) {
         console.error(
           'Error: URL is required. Provide it as argument or use --url option.'
         );
         process.exit(1);
       }
 
-      // Merge formats: positional formats take precedence, then --format flag, then default to markdown
+      // Determine format
       let format: string;
-      if (positionalFormats && positionalFormats.length > 0) {
-        // Positional formats: join them with commas for parseFormats
+      const positionalFormats = (positionalArgs || []).filter(
+        (arg: string) => !isUrl(arg)
+      );
+      if (positionalFormats.length > 0) {
         format = positionalFormats.join(',');
       } else if (options.html) {
-        // Handle --html shortcut flag
         format = 'html';
       } else if (options.summary) {
-        // Handle --summary shortcut flag
         format = 'summary';
       } else if (options.format) {
-        // Use --format option
         format = options.format;
       } else {
-        // Default to markdown
         format = 'markdown';
       }
 
-      const scrapeOptions = parseScrapeOptions({ ...options, url, format });
-      await handleScrapeCommand(scrapeOptions);
+      const scrapeOptions = parseScrapeOptions({
+        ...options,
+        url: urls[0],
+        format,
+      });
+
+      if (urls.length === 1) {
+        await handleScrapeCommand(scrapeOptions);
+      } else {
+        await handleMultiScrapeCommand(urls, scrapeOptions);
+      }
     });
 
   return scrapeCmd;
@@ -183,6 +211,100 @@ function createScrapeCommand(): Command {
 
 // Add scrape command to main program
 program.addCommand(createScrapeCommand());
+
+/**
+ * Create and configure the download command
+ */
+function createDownloadCommand(): Command {
+  const downloadCmd = new Command('download')
+    .description(
+      'Download a site into .firecrawl/ as nested directories. Maps the site first to discover pages, then scrapes them.'
+    )
+    .argument('<url>', 'URL of the site to download')
+    .option('--limit <number>', 'Max pages to download', parseInt)
+    .option('--search <query>', 'Filter pages by search query')
+    .option(
+      '--include-paths <paths>',
+      'Only download URLs matching these paths (comma-separated, e.g. "/docs,/blog")'
+    )
+    .option(
+      '--exclude-paths <paths>',
+      'Skip URLs matching these paths (comma-separated, e.g. "/zh,/ja,/fr,/es")'
+    )
+    .option('--allow-subdomains', 'Include subdomains', false)
+    .option(
+      '-f, --format <formats>',
+      'Output format(s), comma-separated (default: markdown). Available: markdown, html, rawHtml, links, images, summary, json'
+    )
+    .option('-H, --html', 'Download as HTML (shortcut for --format html)')
+    .option(
+      '-S, --summary',
+      'Download as summary (shortcut for --format summary)'
+    )
+    .option('--only-main-content', 'Include only main content', false)
+    .option(
+      '--wait-for <ms>',
+      'Wait time before scraping in milliseconds',
+      parseInt
+    )
+    .option('--screenshot', 'Take a screenshot', false)
+    .option('--full-page-screenshot', 'Take a full page screenshot', false)
+    .option('--include-tags <tags>', 'Comma-separated list of tags to include')
+    .option('--exclude-tags <tags>', 'Comma-separated list of tags to exclude')
+    .option(
+      '--max-age <milliseconds>',
+      'Maximum age of cached content in milliseconds',
+      parseInt
+    )
+    .option(
+      '--country <code>',
+      'ISO country code for geo-targeted scraping (e.g., US, DE, BR)'
+    )
+    .option(
+      '--languages <codes>',
+      'Comma-separated language codes for scraping (e.g., en,es)'
+    )
+    .option('-y, --yes', 'Skip confirmation prompt', false)
+    .option(
+      '-k, --api-key <key>',
+      'Firecrawl API key (overrides global --api-key)'
+    )
+    .option('--api-url <url>', 'API URL (overrides global --api-url)')
+    .action(async (url, options) => {
+      let format = 'markdown';
+      if (options.html) {
+        format = 'html';
+      } else if (options.summary) {
+        format = 'summary';
+      } else if (options.format) {
+        format = options.format;
+      }
+
+      const scrapeOptions = parseScrapeOptions({
+        ...options,
+        url: normalizeUrl(url),
+        format,
+      });
+
+      await handleAllScrapeCommand(normalizeUrl(url), scrapeOptions, {
+        limit: options.limit,
+        yes: options.yes,
+        search: options.search,
+        includePaths: options.includePaths
+          ?.split(',')
+          .map((p: string) => p.trim()),
+        excludePaths: options.excludePaths
+          ?.split(',')
+          .map((p: string) => p.trim()),
+        allowSubdomains: options.allowSubdomains,
+      });
+    });
+
+  return downloadCmd;
+}
+
+// Add download command to main program
+program.addCommand(createDownloadCommand());
 
 /**
  * Create and configure the crawl command
@@ -662,7 +784,6 @@ Explicit subcommands:
       parseInt
     )
     .option('--ttl-inactivity <seconds>', 'Inactivity TTL in seconds', parseInt)
-    .option('--stream', 'Enable live view streaming', false)
     .option(
       '-k, --api-key <key>',
       'Firecrawl API key (overrides global --api-key)'
@@ -682,7 +803,7 @@ Output:
 
 Examples:
   $ firecrawl browser launch-session
-  $ firecrawl browser launch-session --stream --ttl 600
+  $ firecrawl browser launch-session --ttl 600
   $ firecrawl browser launch-session --ttl 300 --ttl-inactivity 60
   $ firecrawl browser launch-session -o session.json --json
 `
@@ -691,7 +812,6 @@ Examples:
       await handleBrowserLaunch({
         ttl: options.ttl,
         ttlInactivity: options.ttlInactivity,
-        stream: options.stream,
         apiKey: options.apiKey,
         apiUrl: options.apiUrl,
         output: options.output,
