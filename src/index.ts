@@ -32,6 +32,7 @@ import { handleLogoutCommand } from './commands/logout';
 import { handleInitCommand } from './commands/init';
 import { handleSetupCommand } from './commands/setup';
 import type { SetupSubcommand } from './commands/setup';
+import { handleEnvPullCommand } from './commands/env';
 import { handleStatusCommand } from './commands/status';
 import { isUrl, normalizeUrl } from './utils/url';
 import { parseScrapeOptions } from './utils/options';
@@ -1109,6 +1110,18 @@ program
   .option('-a, --agent <agent>', 'Install to a specific agent')
   .action(async (subcommand: SetupSubcommand, options) => {
     await handleSetupCommand(subcommand, options);
+  });
+
+program
+  .command('env')
+  .description('Pull FIRECRAWL_API_KEY into a local .env file')
+  .option('-f, --file <path>', 'Target env file (default: .env)')
+  .option('--overwrite', 'Overwrite existing FIRECRAWL_API_KEY if present')
+  .action(async (options) => {
+    await handleEnvPullCommand({
+      file: options.file,
+      overwrite: options.overwrite,
+    });
   });
 
 program
