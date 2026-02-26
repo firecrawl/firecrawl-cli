@@ -16,6 +16,8 @@ import { writeOutput } from '../utils/output';
 export interface BrowserLaunchOptions {
   ttl?: number;
   ttlInactivity?: number;
+  profile?: string;
+  writeMode?: 'readonly' | 'readwrite';
   apiKey?: string;
   apiUrl?: string;
   output?: string;
@@ -50,6 +52,8 @@ export interface BrowserCloseOptions {
 
 export interface BrowserQuickExecuteOptions {
   code: string;
+  profile?: string;
+  writeMode?: 'readonly' | 'readwrite';
   apiKey?: string;
   apiUrl?: string;
   output?: string;
@@ -68,12 +72,22 @@ export async function handleBrowserLaunch(
     const args: {
       ttl?: number;
       activityTtl?: number;
+      profile?: {
+        name: string;
+        writeMode?: 'readonly' | 'readwrite';
+      };
     } = {};
     if (options.ttl !== undefined) args.ttl = options.ttl;
     if (options.ttlInactivity !== undefined)
       args.activityTtl = options.ttlInactivity;
+    if (options.profile) {
+      args.profile = {
+        name: options.profile,
+        writeMode: options.writeMode,
+      };
+    }
 
-    const data = await app.browser(args);
+    const data = await app.browser(args as Parameters<typeof app.browser>[0]);
 
     if (!data.success) {
       console.error('Error:', data.error || 'Unknown error');
@@ -273,7 +287,23 @@ export async function handleBrowserQuickExecute(
   if (!existing) {
     try {
       const app = getClient({ apiKey: options.apiKey, apiUrl: options.apiUrl });
-      const data = await app.browser({});
+
+      const launchArgs: {
+        profile?: {
+          name: string;
+          writeMode?: 'readonly' | 'readwrite';
+        };
+      } = {};
+      if (options.profile) {
+        launchArgs.profile = {
+          name: options.profile,
+          writeMode: options.writeMode,
+        };
+      }
+
+      const data = await app.browser(
+        launchArgs as Parameters<typeof app.browser>[0]
+      );
 
       if (!data.success) {
         console.error('Error:', data.error || 'Failed to launch session');

@@ -736,12 +736,31 @@ function createBrowserCommand(): Command {
       'Firecrawl API key (overrides global --api-key)'
     )
     .option('--api-url <url>', 'API URL (overrides global --api-url)')
+    .option(
+      '--profile <name>',
+      'Name for a profile (survives close, reconnect by name later)'
+    )
+    .option(
+      '--write-mode <mode>',
+      'Write mode for profile: readonly or readwrite (default: readwrite)'
+    )
     .option('-o, --output <path>', 'Output file path (default: stdout)')
     .option('--json', 'Output as JSON format', false)
     .action(async (code, options) => {
       if (code) {
+        if (
+          options.writeMode &&
+          !['readonly', 'readwrite'].includes(options.writeMode)
+        ) {
+          console.error(
+            'Error: --write-mode must be "readonly" or "readwrite"'
+          );
+          process.exit(1);
+        }
         await handleBrowserQuickExecute({
           code,
+          profile: options.profile,
+          writeMode: options.writeMode,
           apiKey: options.apiKey,
           apiUrl: options.apiUrl,
           output: options.output,
@@ -786,6 +805,14 @@ Explicit subcommands:
     )
     .option('--ttl-inactivity <seconds>', 'Inactivity TTL in seconds', parseInt)
     .option(
+      '--profile <name>',
+      'Name for a profile (survives close, reconnect by name later)'
+    )
+    .option(
+      '--write-mode <mode>',
+      'Write mode for profile: readonly or readwrite (default: readwrite)'
+    )
+    .option(
       '-k, --api-key <key>',
       'Firecrawl API key (overrides global --api-key)'
     )
@@ -806,13 +833,24 @@ Examples:
   $ firecrawl browser launch-session
   $ firecrawl browser launch-session --ttl 600
   $ firecrawl browser launch-session --ttl 300 --ttl-inactivity 60
+  $ firecrawl browser launch-session --profile my-session
+  $ firecrawl browser launch-session --profile my-session --write-mode readonly
   $ firecrawl browser launch-session -o session.json --json
 `
     )
     .action(async (options) => {
+      if (
+        options.writeMode &&
+        !['readonly', 'readwrite'].includes(options.writeMode)
+      ) {
+        console.error('Error: --write-mode must be "readonly" or "readwrite"');
+        process.exit(1);
+      }
       await handleBrowserLaunch({
         ttl: options.ttl,
         ttlInactivity: options.ttlInactivity,
+        profile: options.profile,
+        writeMode: options.writeMode,
         apiKey: options.apiKey,
         apiUrl: options.apiUrl,
         output: options.output,
