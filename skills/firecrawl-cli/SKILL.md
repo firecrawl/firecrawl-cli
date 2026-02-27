@@ -66,7 +66,7 @@ See also: [`download`](#download) -- a convenience command that combines `map` +
 **Scrape vs browser:**
 
 - Use `scrape` first. It handles static pages and JS-rendered SPAs.
-- Use `browser` only when scrape fails because content is behind interaction: pagination buttons, modals, dropdowns, multi-step navigation, or infinite scroll.
+- Use `browser` when you need to interact with a page, such as clicking buttons, filling out forms, navigating through a complex site, infinite scroll, or when scrape fails to grab all the content you need.
 - Never use browser for web searches - use `search` instead.
 
 **Avoid redundant fetches:**
