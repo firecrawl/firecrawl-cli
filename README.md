@@ -767,6 +767,27 @@ export FIRECRAWL_NO_TELEMETRY=1
 
 ---
 
+## Experimental: AI Workflows
+
+Launch pre-built AI workflows that combine Firecrawl's web capabilities with your coding agent. One command spins up an interactive session with the right system prompt, tools, and instructions -- like `ollama run` but for web research agents. All workflows spawn parallel subagents to divide the work and finish faster.
+
+```bash
+# Claude Code (available now)
+firecrawl claude competitor-analysis
+firecrawl claude deep-research
+firecrawl claude lead-research
+firecrawl claude seo-audit
+firecrawl claude qa
+
+# Codex and OpenCode -- coming soon
+firecrawl codex competitor-analysis
+firecrawl opencode competitor-analysis
+```
+
+See the full documentation: **[Experimental Workflows ->](src/commands/experimental/README.md)**
+
+---
+
 ## Documentation
 
 For more details, visit the [Firecrawl Documentation](https://docs.firecrawl.dev).

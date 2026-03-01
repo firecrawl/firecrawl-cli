@@ -1,0 +1,2 @@
+overrides:
+  '@mendable/firecrawl-js': link:../firecrawl/apps/js-sdk/firecrawl

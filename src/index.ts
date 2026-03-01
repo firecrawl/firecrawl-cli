@@ -29,7 +29,11 @@ import {
 import { handleVersionCommand } from './commands/version';
 import { handleLoginCommand } from './commands/login';
 import { handleLogoutCommand } from './commands/logout';
-import { handleInitCommand } from './commands/init';
+import {
+  handleInitCommand,
+  scaffoldTemplate,
+  findTemplate,
+} from './commands/init';
 import { handleSetupCommand } from './commands/setup';
 import type { SetupSubcommand } from './commands/setup';
 import { handleEnvPullCommand } from './commands/env';
@@ -41,6 +45,11 @@ import { ensureAuthenticated, printBanner } from './utils/auth';
 import packageJson from '../package.json';
 import type { SearchSource, SearchCategory } from './types/search';
 import type { ScrapeFormat } from './types/scrape';
+import {
+  createClaudeCommand,
+  createCodexCommand,
+  createOpenCodeCommand,
+} from './commands/experimental';
 
 // Initialize global configuration from environment variables
 initializeConfig();
@@ -1024,6 +1033,11 @@ program.addCommand(createSearchCommand());
 program.addCommand(createAgentCommand());
 program.addCommand(createBrowserCommand());
 
+// Experimental: AI workflow commands
+program.addCommand(createClaudeCommand());
+program.addCommand(createCodexCommand());
+program.addCommand(createOpenCodeCommand());
+
 program
   .command('config')
   .description('Configure Firecrawl (login if not authenticated)')
@@ -1093,7 +1107,11 @@ program
 program
   .command('init')
   .description(
-    'Install CLI globally, authenticate, and add skills in one step (npx -y firecrawl-cli init)'
+    'Set up Firecrawl: install CLI, authenticate, add integrations, and scaffold a template'
+  )
+  .argument(
+    '[template]',
+    'Template to scaffold (e.g. browser-nextjs, scrape-express)'
   )
   .option('--all', 'Install skills to all detected agents (implies --yes)')
   .option('-y, --yes', 'Skip confirmation prompts for skills installation')
@@ -1110,8 +1128,9 @@ program
   .option('--skip-install', 'Skip global CLI installation')
   .option('--skip-auth', 'Skip authentication')
   .option('--skip-skills', 'Skip skills installation')
-  .action(async (options) => {
+  .action(async (template, options) => {
     await handleInitCommand({
+      template,
       global: options.global,
       agent: options.agent,
       all: options.all,
@@ -1213,6 +1232,12 @@ async function main() {
     // Authenticated - show banner and help
     printBanner();
     program.outputHelp();
+    return;
+  }
+
+  // Check if first argument is a template name
+  if (!args[0].startsWith('-') && findTemplate(args[0])) {
+    await scaffoldTemplate(args[0]);
     return;
   }
 
