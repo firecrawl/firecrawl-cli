@@ -58,7 +58,7 @@ describe('executeMap', () => {
 
       expect(mockClient.map).toHaveBeenCalledTimes(1);
       expect(mockClient.map).toHaveBeenCalledWith('https://example.com', {
-        origin: 'cli',
+        integration: 'cli',
       });
     });
 
@@ -231,7 +231,7 @@ describe('executeMap', () => {
       });
 
       expect(mockClient.map).toHaveBeenCalledWith('https://example.com', {
-        origin: 'cli',
+        integration: 'cli',
         limit: 100,
         search: 'blog',
         sitemap: 'include',

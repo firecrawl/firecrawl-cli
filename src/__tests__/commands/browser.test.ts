@@ -79,7 +79,7 @@ describe('Browser Commands', () => {
     await handleBrowserLaunch({});
 
     expect(mockClient.browser).toHaveBeenCalledWith(
-      expect.objectContaining({ origin: 'cli' })
+      expect.objectContaining({ integration: 'cli' })
     );
   });
 
@@ -99,7 +99,7 @@ describe('Browser Commands', () => {
 
     expect(mockClient.browser).toHaveBeenCalledWith(
       expect.objectContaining({
-        origin: 'cli',
+        integration: 'cli',
         ttl: 600,
         activityTtl: 120,
         profile: { name: 'my-profile', saveChanges: true },
@@ -198,7 +198,7 @@ describe('Browser Commands', () => {
 
     expect(mockClient.browser).toHaveBeenCalledTimes(1);
     expect(mockClient.browser).toHaveBeenCalledWith(
-      expect.objectContaining({ origin: 'cli' })
+      expect.objectContaining({ integration: 'cli' })
     );
     expect(saveBrowserSession).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'new-session' })
@@ -228,7 +228,7 @@ describe('Browser Commands', () => {
 
     expect(mockClient.browser).toHaveBeenCalledWith(
       expect.objectContaining({
-        origin: 'cli',
+        integration: 'cli',
         profile: { name: 'dev', saveChanges: false },
       })
     );

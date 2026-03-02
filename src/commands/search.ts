@@ -26,7 +26,7 @@ export async function executeSearch(
     // Build search options for the SDK
     const searchParams: Record<string, any> = {
       limit: options.limit,
-      origin: 'cli',
+      integration: 'cli',
     };
 
     // Add sources if specified

@@ -59,7 +59,7 @@ describe('executeCrawl', () => {
       expect(mockClient.startCrawl).toHaveBeenCalledTimes(1);
       expect(mockClient.startCrawl).toHaveBeenCalledWith(
         'https://example.com',
-        { origin: 'cli' }
+        { integration: 'cli' }
       );
       expect(result).toEqual({
         success: true,
@@ -233,7 +233,7 @@ describe('executeCrawl', () => {
       expect(mockClient.startCrawl).toHaveBeenCalledWith(
         'https://example.com',
         {
-          origin: 'cli',
+          integration: 'cli',
           limit: 50,
           maxDiscoveryDepth: 2,
           excludePaths: ['/admin'],

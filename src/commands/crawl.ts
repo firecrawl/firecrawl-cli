@@ -58,7 +58,7 @@ export async function executeCrawl(
 
     // Build crawl options
     const crawlOptions: any = {
-      origin: 'cli',
+      integration: 'cli',
     };
 
     if (options.limit !== undefined) {

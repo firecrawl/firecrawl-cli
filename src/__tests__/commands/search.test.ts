@@ -58,7 +58,7 @@ describe('executeSearch', () => {
       expect(mockClient.search).toHaveBeenCalledTimes(1);
       expect(mockClient.search).toHaveBeenCalledWith('test query', {
         limit: undefined,
-        origin: 'cli',
+        integration: 'cli',
       });
     });
 
@@ -352,7 +352,7 @@ describe('executeSearch', () => {
 
       expect(mockClient.search).toHaveBeenCalledWith('comprehensive test', {
         limit: 20,
-        origin: 'cli',
+        integration: 'cli',
         sources: [{ type: 'web' }, { type: 'news' }],
         categories: [{ type: 'github' }],
         tbs: 'qdr:w',

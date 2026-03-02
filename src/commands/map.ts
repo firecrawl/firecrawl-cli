@@ -16,7 +16,7 @@ export async function executeMap(options: MapOptions): Promise<MapResult> {
 
     // Build map options
     const mapOptions: any = {
-      origin: 'cli',
+      integration: 'cli',
     };
 
     if (options.limit !== undefined) {

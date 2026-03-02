@@ -54,7 +54,7 @@ describe('executeScrape', () => {
       expect(mockClient.scrape).toHaveBeenCalledTimes(1);
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
-        origin: 'cli',
+        integration: 'cli',
       });
     });
 
@@ -100,7 +100,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['html'],
-        origin: 'cli',
+        integration: 'cli',
       });
     });
 
@@ -115,7 +115,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['summary'],
-        origin: 'cli',
+        integration: 'cli',
       });
     });
 
@@ -133,7 +133,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['screenshot'],
-        origin: 'cli',
+        integration: 'cli',
       });
     });
 
@@ -152,7 +152,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown', 'screenshot'],
-        origin: 'cli',
+        integration: 'cli',
       });
     });
 
@@ -167,7 +167,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
-        origin: 'cli',
+        integration: 'cli',
         onlyMainContent: true,
       });
     });
@@ -183,7 +183,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
-        origin: 'cli',
+        integration: 'cli',
         waitFor: 2000,
       });
     });
@@ -199,7 +199,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
-        origin: 'cli',
+        integration: 'cli',
         includeTags: ['article', 'main'],
       });
     });
@@ -215,7 +215,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
-        origin: 'cli',
+        integration: 'cli',
         excludeTags: ['nav', 'footer'],
       });
     });
@@ -236,7 +236,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown', 'screenshot'],
-        origin: 'cli',
+        integration: 'cli',
         onlyMainContent: true,
         waitFor: 3000,
         includeTags: ['article'],
@@ -255,7 +255,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
-        origin: 'cli',
+        integration: 'cli',
         maxAge: 3600,
       });
     });
@@ -271,7 +271,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
-        origin: 'cli',
+        integration: 'cli',
         location: { country: 'US', languages: ['en'] },
       });
     });
@@ -287,7 +287,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
-        origin: 'cli',
+        integration: 'cli',
         location: { country: 'DE' },
       });
     });
@@ -303,7 +303,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
-        origin: 'cli',
+        integration: 'cli',
         location: { languages: ['en', 'es'] },
       });
     });
@@ -318,7 +318,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
-        origin: 'cli',
+        integration: 'cli',
       });
     });
   });
@@ -421,7 +421,7 @@ describe('executeScrape', () => {
       expect(result.success).toBe(true);
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown', 'links', 'images'],
-        origin: 'cli',
+        integration: 'cli',
       });
     });
   });
