@@ -69,6 +69,44 @@ describe('Browser Commands', () => {
     vi.clearAllMocks();
   });
 
+  it('launch passes origin cli to browser()', async () => {
+    mockClient.browser.mockResolvedValue({
+      success: true,
+      id: 'session-123',
+      cdpUrl: 'wss://cdp.example.com/session-123',
+    });
+
+    await handleBrowserLaunch({});
+
+    expect(mockClient.browser).toHaveBeenCalledWith(
+      expect.objectContaining({ origin: 'cli' })
+    );
+  });
+
+  it('launch passes origin cli alongside other options', async () => {
+    mockClient.browser.mockResolvedValue({
+      success: true,
+      id: 'session-123',
+      cdpUrl: 'wss://cdp.example.com/session-123',
+    });
+
+    await handleBrowserLaunch({
+      ttl: 600,
+      ttlInactivity: 120,
+      profile: 'my-profile',
+      saveChanges: true,
+    });
+
+    expect(mockClient.browser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        origin: 'cli',
+        ttl: 600,
+        activityTtl: 120,
+        profile: { name: 'my-profile', saveChanges: true },
+      })
+    );
+  });
+
   it('launch saves session on success', async () => {
     mockClient.browser.mockResolvedValue({
       success: true,
@@ -159,8 +197,40 @@ describe('Browser Commands', () => {
     await handleBrowserQuickExecute({ code: 'open https://example.com' });
 
     expect(mockClient.browser).toHaveBeenCalledTimes(1);
+    expect(mockClient.browser).toHaveBeenCalledWith(
+      expect.objectContaining({ origin: 'cli' })
+    );
     expect(saveBrowserSession).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'new-session' })
+    );
+  });
+
+  it('quick execute auto-launch passes origin cli with profile', async () => {
+    const { loadBrowserSession } = await import('../../utils/browser-session');
+    vi.mocked(loadBrowserSession).mockReturnValueOnce(null);
+    vi.mocked(loadBrowserSession).mockReturnValue({
+      id: 'new-session',
+      cdpUrl: 'wss://new',
+      createdAt: '2025-01-01T00:00:00Z',
+    });
+
+    mockClient.browser.mockResolvedValue({
+      success: true,
+      id: 'new-session',
+      cdpUrl: 'wss://new',
+    });
+
+    await handleBrowserQuickExecute({
+      code: 'open https://example.com',
+      profile: 'dev',
+      saveChanges: false,
+    });
+
+    expect(mockClient.browser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        origin: 'cli',
+        profile: { name: 'dev', saveChanges: false },
+      })
     );
   });
 

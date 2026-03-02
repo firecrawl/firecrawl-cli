@@ -54,6 +54,7 @@ describe('executeScrape', () => {
       expect(mockClient.scrape).toHaveBeenCalledTimes(1);
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
+        origin: 'cli',
       });
     });
 
@@ -99,6 +100,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['html'],
+        origin: 'cli',
       });
     });
 
@@ -113,6 +115,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['summary'],
+        origin: 'cli',
       });
     });
 
@@ -130,6 +133,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['screenshot'],
+        origin: 'cli',
       });
     });
 
@@ -148,6 +152,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown', 'screenshot'],
+        origin: 'cli',
       });
     });
 
@@ -162,6 +167,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
+        origin: 'cli',
         onlyMainContent: true,
       });
     });
@@ -177,6 +183,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
+        origin: 'cli',
         waitFor: 2000,
       });
     });
@@ -192,6 +199,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
+        origin: 'cli',
         includeTags: ['article', 'main'],
       });
     });
@@ -207,6 +215,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
+        origin: 'cli',
         excludeTags: ['nav', 'footer'],
       });
     });
@@ -227,6 +236,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown', 'screenshot'],
+        origin: 'cli',
         onlyMainContent: true,
         waitFor: 3000,
         includeTags: ['article'],
@@ -245,6 +255,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
+        origin: 'cli',
         maxAge: 3600,
       });
     });
@@ -260,6 +271,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
+        origin: 'cli',
         location: { country: 'US', languages: ['en'] },
       });
     });
@@ -275,6 +287,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
+        origin: 'cli',
         location: { country: 'DE' },
       });
     });
@@ -290,6 +303,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
+        origin: 'cli',
         location: { languages: ['en', 'es'] },
       });
     });
@@ -304,6 +318,7 @@ describe('executeScrape', () => {
 
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown'],
+        origin: 'cli',
       });
     });
   });
@@ -406,6 +421,7 @@ describe('executeScrape', () => {
       expect(result.success).toBe(true);
       expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
         formats: ['markdown', 'links', 'images'],
+        origin: 'cli',
       });
     });
   });
