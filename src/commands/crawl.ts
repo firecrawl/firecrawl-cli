@@ -57,7 +57,9 @@ export async function executeCrawl(
     }
 
     // Build crawl options
-    const crawlOptions: any = {};
+    const crawlOptions: any = {
+      origin: 'cli',
+    };
 
     if (options.limit !== undefined) {
       crawlOptions.limit = options.limit;

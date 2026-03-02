@@ -76,16 +76,9 @@ export async function executeScrape(
     formats.push('markdown');
   }
 
-  const scrapeParams: {
-    formats?: FormatOption[];
-    onlyMainContent?: boolean;
-    waitFor?: number;
-    includeTags?: string[];
-    excludeTags?: string[];
-    maxAge?: number;
-    location?: ScrapeLocation;
-  } = {
+  const scrapeParams: Record<string, unknown> = {
     formats,
+    origin: 'cli',
   };
 
   if (options.onlyMainContent !== undefined) {

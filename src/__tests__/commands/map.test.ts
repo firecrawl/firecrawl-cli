@@ -57,7 +57,9 @@ describe('executeMap', () => {
       });
 
       expect(mockClient.map).toHaveBeenCalledTimes(1);
-      expect(mockClient.map).toHaveBeenCalledWith('https://example.com', {});
+      expect(mockClient.map).toHaveBeenCalledWith('https://example.com', {
+        origin: 'cli',
+      });
     });
 
     it('should pass apiUrl to getClient when provided', async () => {
@@ -229,6 +231,7 @@ describe('executeMap', () => {
       });
 
       expect(mockClient.map).toHaveBeenCalledWith('https://example.com', {
+        origin: 'cli',
         limit: 100,
         search: 'blog',
         sitemap: 'include',
