@@ -280,7 +280,6 @@ firecrawl browser launch-session --profile my-app
 firecrawl browser "open https://app.example.com/login"
 firecrawl browser "snapshot -i"
 firecrawl browser "fill @e3 'user@example.com'"
-firecrawl browser "fill @e5 'password123'"
 firecrawl browser "click @e7"
 firecrawl browser "wait 2"
 firecrawl browser close
