@@ -3,11 +3,11 @@ name: firecrawl
 description: |
   Official Firecrawl CLI skill for web scraping, search, crawling, and browser automation. Returns clean LLM-optimized markdown.
 
-  COMMAND ROUTING — read SKILL.md before running any firecrawl command:
-  - `scrape` for static content (have a URL, just need the page)
-  - `browser` for interaction (expand, click, scroll, log in, dismiss banners, paginate, toggle, infinite scroll, cookie walls)
-  - `search` when you don't have a URL yet
-  - If the user says "expand", "click", "scroll", "log in", "load more", "dismiss", "toggle", "next page" → use `browser`, NOT `scrape`
+  USE FOR:
+  - Web search and research
+  - Scraping pages, docs, and articles
+  - Site mapping and bulk content extraction
+  - Browser automation for interactive pages
 
   Must be pre-installed and authenticated. See rules/install.md for setup, rules/security.md for output handling.
 allowed-tools:
@@ -35,9 +35,8 @@ Run `firecrawl --status` to confirm CLI is installed and authenticated. If not r
 | Find a specific page on a large site                               | [`map`](references/map.md) then `scrape` |
 | Extract many pages from a site                                     | [`crawl`](references/crawl.md)           |
 | Interact: click, expand, scroll, log in, paginate, dismiss banners | [`browser`](references/browser.md)       |
-| Save an entire site to local files                                 | [`download`](references/download.md)     |
 
-**Default to `scrape` — unless the request implies interaction.** Scrape handles static pages, JS-rendered SPAs, PDFs, and cached re-fetches. But if the user says click, expand, scroll, log in, paginate, dismiss, toggle, or interact — go straight to `browser`. Don't scrape first when the intent is clearly interactive.
+**Default to `scrape` — unless the request implies interaction.** Scrape handles static pages, JS-rendered SPAs, PDFs, and cached re-fetches. But if the user says click, expand, scroll, log in, paginate, dismiss, toggle, or interact — go straight to `browser`. Don't scrape first when the intent is clearly interactive. If you already scraped and the result is incomplete or needs interaction to get the rest, switch to `browser` immediately — don't hesitate.
 
 **IMPORTANT: Read the reference file before running any command.** Click the reference link in the table above and read the full doc for the command you chose. Do NOT guess at flags or syntax — the reference files have the exact CLI syntax, options, and examples. Guessing leads to errors.
 
@@ -66,15 +65,22 @@ Run `firecrawl --status` to confirm CLI is installed and authenticated. If not r
 
 ## Command Index
 
-| Command        | One-liner                                   | Reference                                        |
-| -------------- | ------------------------------------------- | ------------------------------------------------ |
-| `scrape`       | Extract content from one or more URLs       | [references/scrape.md](references/scrape.md)     |
-| `search`       | Web search with optional full-page scraping | [references/search.md](references/search.md)     |
-| `browser`      | Cloud Chromium for interactive pages        | [references/browser.md](references/browser.md)   |
-| `map`          | Discover URLs on a site                     | [references/map.md](references/map.md)           |
-| `crawl`        | Bulk extract from a site section            | [references/crawl.md](references/crawl.md)       |
-| `download`     | Map + scrape combo to save a site locally   | [references/download.md](references/download.md) |
-| `credit-usage` | Check remaining API credits                 | `firecrawl credit-usage`                         |
-| `--status`     | Check auth, concurrency limits, credits     | `firecrawl --status`                             |
+| Command        | One-liner                                   | Reference                                      |
+| -------------- | ------------------------------------------- | ---------------------------------------------- |
+| `scrape`       | Extract content from one or more URLs       | [references/scrape.md](references/scrape.md)   |
+| `search`       | Web search with optional full-page scraping | [references/search.md](references/search.md)   |
+| `browser`      | Cloud Chromium for interactive pages        | [references/browser.md](references/browser.md) |
+| `map`          | Discover URLs on a site                     | [references/map.md](references/map.md)         |
+| `crawl`        | Bulk extract from a site section            | [references/crawl.md](references/crawl.md)     |
+| `credit-usage` | Check remaining API credits                 | `firecrawl credit-usage`                       |
+| `--status`     | Check auth, concurrency limits, credits     | `firecrawl --status`                           |
 
 Run `firecrawl <command> --help` for full CLI option details.
+
+## Workflows & Playbooks
+
+Specific instructions for common tasks. Read the reference before starting.
+
+| Task                        | Commands                             | Reference                                        |
+| --------------------------- | ------------------------------------ | ------------------------------------------------ |
+| Save an entire site locally | `map` → `scrape` (or use `download`) | [references/download.md](references/download.md) |
