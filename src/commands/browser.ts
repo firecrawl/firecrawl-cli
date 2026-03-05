@@ -109,8 +109,12 @@ export async function handleBrowserLaunch(
       const lines: string[] = [];
       lines.push(`Session ID:    ${data.id}`);
       lines.push(`CDP URL:       ${data.cdpUrl}`);
-      if (data.liveViewUrl) {
-        lines.push(`Live View URL: ${data.liveViewUrl}`);
+      // interactiveLiveViewUrl is returned by the API but not yet in the SDK types
+      const interactiveUrl =
+        (data as unknown as { interactiveLiveViewUrl?: string })
+          .interactiveLiveViewUrl || data.liveViewUrl;
+      if (interactiveUrl) {
+        lines.push(`Live View URL: ${interactiveUrl}`);
       }
       writeOutput(lines.join('\n'), options.output, !!options.output);
     }
