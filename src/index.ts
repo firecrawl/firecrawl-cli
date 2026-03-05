@@ -12,7 +12,6 @@ import {
   handleAllScrapeCommand,
 } from './commands/scrape';
 import { initializeConfig, updateConfig } from './utils/config';
-import { getClient } from './utils/client';
 import { configure, viewConfig } from './commands/config';
 import { handleCreditUsageCommand } from './commands/credit-usage';
 import { handleCrawlCommand } from './commands/crawl';
@@ -1075,9 +1074,10 @@ program
   )
   .option('-b, --browser', 'Login via browser (shortcut for --method browser)')
   .action(async (options) => {
+    const globalOptions = program.opts();
     await handleLoginCommand({
-      apiKey: options.apiKey,
-      apiUrl: options.apiUrl,
+      apiKey: options.apiKey ?? globalOptions.apiKey,
+      apiUrl: options.apiUrl ?? globalOptions.apiUrl,
       webUrl: options.webUrl,
       method: options.browser ? 'browser' : options.method,
     });

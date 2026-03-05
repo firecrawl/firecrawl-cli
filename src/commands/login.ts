@@ -4,7 +4,7 @@
  */
 
 import { saveCredentials, getConfigDirectoryPath } from '../utils/credentials';
-import { updateConfig } from '../utils/config';
+import { updateConfig, getApiKey } from '../utils/config';
 import {
   browserLogin,
   manualLogin,
@@ -39,6 +39,27 @@ export async function handleLoginCommand(
     console.log('\nTo login with a different account, run:');
     console.log('  firecrawl logout');
     console.log('  firecrawl login');
+    return;
+  }
+
+  // If only a custom --api-url is provided (no --api-key), persist the new URL
+  // alongside the existing API key rather than starting an interactive login flow.
+  if (isCustomUrl && !options.apiKey && !options.method) {
+    const existingApiKey = getApiKey();
+    try {
+      saveCredentials({
+        apiKey: existingApiKey,
+        apiUrl: apiUrl,
+      });
+      updateConfig({ apiKey: existingApiKey, apiUrl });
+      console.log('✓ API URL updated successfully!');
+    } catch (error) {
+      console.error(
+        'Error saving credentials:',
+        error instanceof Error ? error.message : 'Unknown error'
+      );
+      process.exit(1);
+    }
     return;
   }
 
