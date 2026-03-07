@@ -38,8 +38,7 @@ async function gatherInputs(prefill?: {
   const { input, select } = await import('@inquirer/prompts');
 
   const competitors = await input({
-    message:
-      'Which competitors to monitor? (URLs or names, comma-separated)',
+    message: 'Which competitors to monitor? (URLs or names, comma-separated)',
     validate: validateRequired('At least one competitor'),
   });
 

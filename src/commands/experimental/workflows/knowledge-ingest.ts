@@ -237,8 +237,7 @@ export function register(parentCmd: Command, backend: Backend): void {
       const inputs = await gatherInputs(url ? { url } : undefined);
 
       const parts = [`Ingest knowledge base from: ${inputs.url}`];
-      if (inputs.context)
-        parts.push(`Focus on: ${inputs.context}`);
+      if (inputs.context) parts.push(`Focus on: ${inputs.context}`);
       const userMessage = parts.join('. ') + '.';
 
       const skipPermissions = true;

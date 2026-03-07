@@ -51,8 +51,14 @@ async function gatherInputs(prefill?: { query?: string }): Promise<Inputs> {
     message: 'What data are you looking for?',
     choices: [
       { name: 'Everything (revenue, earnings, metrics, news)', value: 'all' },
-      { name: 'Financial data (revenue, earnings, margins)', value: 'financial' },
-      { name: 'Market metrics (market cap, P/E, growth rates)', value: 'metrics' },
+      {
+        name: 'Financial data (revenue, earnings, margins)',
+        value: 'financial',
+      },
+      {
+        name: 'Market metrics (market cap, P/E, growth rates)',
+        value: 'metrics',
+      },
       { name: 'Industry trends and news', value: 'trends' },
     ],
   });

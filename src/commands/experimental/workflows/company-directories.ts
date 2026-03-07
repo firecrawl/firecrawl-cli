@@ -22,9 +22,7 @@ interface Inputs {
 
 // ─── Input gathering ────────────────────────────────────────────────────────
 
-async function gatherInputs(prefill?: {
-  directory?: string;
-}): Promise<Inputs> {
+async function gatherInputs(prefill?: { directory?: string }): Promise<Inputs> {
   if (prefill?.directory) {
     return {
       directory: prefill.directory,
@@ -236,7 +234,8 @@ export function register(parentCmd: Command, backend: Backend): void {
 
       const parts = [`Scrape directory: ${inputs.directory}`];
       if (inputs.filters) parts.push(`Filters: ${inputs.filters}`);
-      if (inputs.maxResults) parts.push(`Extract up to ${inputs.maxResults} companies`);
+      if (inputs.maxResults)
+        parts.push(`Extract up to ${inputs.maxResults} companies`);
       if (inputs.context) parts.push(inputs.context);
       const userMessage = parts.join('. ') + '.';
 

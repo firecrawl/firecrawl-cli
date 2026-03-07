@@ -63,8 +63,7 @@ async function gatherInputs(prefill?: { target?: string }): Promise<Inputs> {
   }
 
   const profile = await input({
-    message:
-      'Browser profile for auth? (leave blank for anonymous access)',
+    message: 'Browser profile for auth? (leave blank for anonymous access)',
     default: '',
   });
 
@@ -109,8 +108,7 @@ function buildSystemPrompt(opts: {
   const sourceUrls: Record<string, string> = {
     apollo: 'https://app.apollo.io',
     linkedin: 'https://www.linkedin.com/sales',
-    crunchbase:
-      'https://www.crunchbase.com/discover/people',
+    crunchbase: 'https://www.crunchbase.com/discover/people',
   };
 
   const sourceHint =
@@ -256,8 +254,7 @@ export function register(parentCmd: Command, backend: Backend): void {
       );
 
       const parts = [`Find leads matching: ${inputs.target}`];
-      if (inputs.source !== 'auto')
-        parts.push(`Search on: ${inputs.source}`);
+      if (inputs.source !== 'auto') parts.push(`Search on: ${inputs.source}`);
       if (inputs.context) parts.push(inputs.context);
       const userMessage = parts.join('. ') + '.';
 

@@ -46,8 +46,7 @@ async function gatherInputs(prefill?: {
   });
 
   const profile = await input({
-    message:
-      'Browser profile for auth? (required for most dashboards)',
+    message: 'Browser profile for auth? (required for most dashboards)',
     default: '',
   });
 
