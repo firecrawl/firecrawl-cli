@@ -137,7 +137,15 @@ function buildPassthroughSystemPrompt(userInput: string): string {
   const browserSpecific = isBrowserRelated(userInput);
 
   const browserBlock = browserSpecific
-    ? `\n\n**Since this task involves browser interactions**, start by running \`firecrawl browser --help\` to understand sessions, profiles, execute commands, and all browser capabilities.
+    ? `\n\n**Since this task involves browser interactions**, first launch a browser session with live view so the user can watch:
+
+\`\`\`bash
+firecrawl browser launch-session --json
+\`\`\`
+
+Show the **Live View URL** to the user immediately so they can open it and watch you work in real-time.
+
+Then run \`firecrawl browser --help\` to understand sessions, profiles, execute commands, and all browser capabilities.
 
 ### Profiles (persistent Chrome profiles -- NOT sessions)
 

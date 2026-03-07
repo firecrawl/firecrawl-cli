@@ -59,6 +59,23 @@ Use ONLY \`firecrawl\` for ALL web operations. It is already installed and authe
 
 **First step: run \`firecrawl --help\` and \`firecrawl browser --help\` to see all commands.** Tell each subagent to do the same.
 
+## IMPORTANT: Launch Browser with Live View FIRST
+
+Before doing anything else, launch a browser session with streaming enabled so the user can watch in real-time:
+
+\`\`\`bash
+firecrawl browser launch-session --json
+\`\`\`
+
+This prints a **Live View URL**. Try to open it automatically for the user:
+
+\`\`\`bash
+open "<liveViewUrl>"          # macOS
+xdg-open "<liveViewUrl>"     # Linux
+\`\`\`
+
+If the \`open\` command fails or errors, just print the URL clearly so the user can copy-paste it into their browser. Either way, make sure the user sees the live view URL before you start working.
+
 Quick reference:
 - \`firecrawl browser "open <url>"\` -- Navigate to a URL in a cloud browser
 - \`firecrawl browser "snapshot"\` -- Get the current page state (accessibility tree)

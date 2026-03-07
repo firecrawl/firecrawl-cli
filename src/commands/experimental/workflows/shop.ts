@@ -8,7 +8,7 @@
 
 import { Command } from 'commander';
 import { type Backend, BACKENDS, launchAgent } from '../backends';
-import { FIRECRAWL_TOOLS_BLOCK, validateRequired } from '../shared';
+import { QA_TOOLS_BLOCK, validateRequired } from '../shared';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -51,7 +51,7 @@ async function gatherInputs(prefill?: { query?: string }): Promise<Inputs> {
 function buildSystemPrompt(): string {
   return `You are a personal shopping assistant powered by Firecrawl. You research products across the web, find the best deal, and then use the user's saved Amazon browser profile to add it to their cart.
 
-${FIRECRAWL_TOOLS_BLOCK}
+${QA_TOOLS_BLOCK}
 
 ## Browser Profiles (IMPORTANT -- read carefully)
 
