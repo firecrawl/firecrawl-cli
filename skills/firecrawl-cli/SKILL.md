@@ -1,16 +1,7 @@
 ---
 name: firecrawl
 description: |
-  Official Firecrawl CLI skill for web scraping, search, crawling, and browser automation. Returns clean LLM-optimized markdown.
-
-  USE FOR:
-  - Web search and research
-  - Scraping pages, docs, and articles
-  - Site mapping and bulk content extraction
-  - Browser automation for interactive pages
-
-  Individual command skills available: firecrawl-search, firecrawl-scrape, firecrawl-map, firecrawl-crawl, firecrawl-agent, firecrawl-browser, firecrawl-download.
-  Must be pre-installed and authenticated. See rules/install.md for setup, rules/security.md for output handling.
+  Web scraping, search, crawling, and browser automation via the Firecrawl CLI. Use this skill whenever the user wants to search the web, find articles, research a topic, look something up online, scrape a webpage, grab content from a URL, extract data from a website, crawl documentation, download a site, or interact with pages that need clicks or logins. Also use when they say "fetch this page", "pull the content from", "get the page at https://", or reference scraping external websites. This provides real-time web search with full page content extraction and cloud browser automation — capabilities beyond what Claude can do natively with built-in tools. Do NOT trigger for local file operations, git commands, deployments, or code editing tasks.
 allowed-tools:
   - Bash(firecrawl *)
   - Bash(npx firecrawl *)

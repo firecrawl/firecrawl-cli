@@ -1,8 +1,7 @@
 ---
 name: firecrawl-browser
 description: |
-  Firecrawl browser — cloud Chromium sessions for interactive page automation.
-  Part of the Firecrawl CLI. Run `firecrawl browser --help` for all options.
+  Cloud browser automation for pages requiring interaction — clicks, form fills, login, pagination, infinite scroll. Use this skill when the user needs to interact with a webpage, log into a site, click buttons, fill forms, navigate multi-step flows, handle pagination, or when regular scraping fails because content requires JavaScript interaction. Triggers on "click", "fill out the form", "log in to", "paginated", "infinite scroll", "interact with the page", or "scrape failed". Provides remote Chromium sessions with persistent profiles.
 allowed-tools:
   - Bash(firecrawl *)
   - Bash(npx firecrawl *)
