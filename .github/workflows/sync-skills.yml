@@ -1,0 +1,55 @@
+name: Sync Skills to skills-gh-action-test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'skills/**'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout CLI repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          path: cli
+
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          repository: firecrawl/skills-gh-action-test
+          token: ${{ secrets.FIRECRAWL_SKILLS_SYNC }}
+          path: target
+
+      - name: Copy skills folder
+        run: |
+          rm -rf target/skills
+          cp -r cli/skills target/skills
+
+      - name: Create and merge PR
+        env:
+          GH_TOKEN: ${{ secrets.FIRECRAWL_SKILLS_SYNC }}
+        run: |
+          cd target
+          BRANCH="sync/skills-${{ github.sha }}"
+          git checkout -b "$BRANCH"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to sync"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Sync skills from firecrawl/cli"
+          git push origin "$BRANCH"
+          PR_URL=$(gh pr create \
+            --repo firecrawl/skills-gh-action-test \
+            --title "Sync skills from firecrawl/cli" \
+            --body "Automated sync from firecrawl/cli main branch." \
+            --base main \
+            --head "$BRANCH")
+          echo "Created PR: $PR_URL"
+          gh pr merge --repo firecrawl/skills-gh-action-test --auto --merge --delete-branch "$PR_URL"
