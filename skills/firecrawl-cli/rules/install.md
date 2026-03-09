@@ -12,10 +12,10 @@ description: |
 ## Quick Setup (Recommended)
 
 ```bash
-npx -y firecrawl-cli@1.8.0 init --all --browser
+npx -y firecrawl-cli init -y
 ```
 
-This installs `firecrawl-cli` globally and authenticates.
+This installs `firecrawl-cli` globally, authenticates via browser, and installs all skills.
 
 ## Manual Install
 
