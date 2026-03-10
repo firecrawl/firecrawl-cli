@@ -64,6 +64,6 @@ firecrawl download https://docs.example.com \
 
 ## See also
 
-- [firecrawl-map](../../firecrawl-map/SKILL.md) — just discover URLs without downloading
-- [firecrawl-scrape](../../firecrawl-scrape/SKILL.md) — scrape individual pages
-- [firecrawl-crawl](../../firecrawl-crawl/SKILL.md) — bulk extract as JSON (not local files)
+- [firecrawl-map](../firecrawl-map/SKILL.md) — just discover URLs without downloading
+- [firecrawl-scrape](../firecrawl-scrape/SKILL.md) — scrape individual pages
+- [firecrawl-crawl](../firecrawl-crawl/SKILL.md) — bulk extract as JSON (not local files)
