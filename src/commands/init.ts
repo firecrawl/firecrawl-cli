@@ -8,6 +8,7 @@ import { execSync } from 'child_process';
 import { isAuthenticated, browserLogin, interactiveLogin } from '../utils/auth';
 import { saveCredentials } from '../utils/credentials';
 import { updateConfig, getApiKey } from '../utils/config';
+import { buildSkillsInstallArgs } from './skills-install';
 
 export interface InitOptions {
   global?: boolean;
@@ -214,18 +215,12 @@ async function stepIntegrations(options: InitOptions): Promise<void> {
     switch (integration) {
       case 'skills': {
         console.log(`\n  Setting up skills...`);
-        const args = [
-          'npx',
-          '-y',
-          'skills',
-          'add',
-          'firecrawl/cli',
-          '--full-depth',
-        ];
-        if (options.all) args.push('--all');
-        if (options.yes || options.all) args.push('--yes');
-        if (options.global) args.push('--global');
-        if (options.agent) args.push('--agent', options.agent);
+        const args = buildSkillsInstallArgs({
+          agent: options.agent,
+          yes: options.yes || options.all,
+          global: true,
+          includeNpxYes: true,
+        });
         try {
           execSync(args.join(' '), { stdio: 'inherit' });
           console.log(`  ${green}✓${reset} Skills installed`);
@@ -621,18 +616,12 @@ async function runNonInteractive(options: InitOptions): Promise<void> {
     console.log(
       `${stepLabel()} Installing firecrawl skill for AI coding agents...`
     );
-    const args = [
-      'npx',
-      '-y',
-      'skills',
-      'add',
-      'firecrawl/cli',
-      '--full-depth',
-    ];
-    if (options.all || options.yes) args.push('--all');
-    if (options.yes || options.all) args.push('--yes');
-    if (options.global) args.push('--global');
-    if (options.agent) args.push('--agent', options.agent);
+    const args = buildSkillsInstallArgs({
+      agent: options.agent,
+      yes: true,
+      global: true,
+      includeNpxYes: true,
+    });
     try {
       execSync(args.join(' '), { stdio: 'inherit' });
       console.log(`${green}✓${reset} Skills installed\n`);
