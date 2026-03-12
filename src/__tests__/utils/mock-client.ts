@@ -14,7 +14,6 @@ export interface MockFirecrawlClient {
   crawl?: any;
   map?: any;
   extract?: any;
-  agent?: any;
 }
 
 /**
