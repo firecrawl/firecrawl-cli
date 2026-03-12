@@ -54,6 +54,7 @@ firecrawl scrape "https://example.com/pricing" --query "What is the enterprise p
 
 ## Tips
 
+- **Prefer plain scrape over `--query`.** Scrape to a file, then use `grep`, `head`, or read the markdown directly — you can search and reason over the full content yourself. Use `--query` only when you want a single targeted answer without saving the page (costs 5 extra credits).
 - **Try scrape before browser.** Scrape handles static pages and JS-rendered SPAs. Only escalate to browser when you need interaction (clicks, form fills, pagination).
 - Multiple URLs are scraped concurrently — check `firecrawl --status` for your concurrency limit.
 - Single format outputs raw content. Multiple formats (e.g., `--format markdown,links`) output JSON.
