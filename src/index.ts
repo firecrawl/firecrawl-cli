@@ -158,6 +158,10 @@ function createScrapeCommand(): Command {
       '--languages <codes>',
       'Comma-separated language codes for scraping (e.g., en,es)'
     )
+    .option(
+      '-Q, --query <prompt>',
+      'Ask a question about the page content (query format)'
+    )
 
     .action(async (positionalArgs, options) => {
       // Collect URLs from positional args and --url option

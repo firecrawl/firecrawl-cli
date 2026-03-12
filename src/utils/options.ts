@@ -111,5 +111,6 @@ export function parseScrapeOptions(options: any): ScrapeOptions {
     timing: options.timing,
     maxAge: options.maxAge,
     location,
+    query: options.query,
   };
 }

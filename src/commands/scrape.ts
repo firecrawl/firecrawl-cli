@@ -10,7 +10,7 @@ import type {
   ScrapeLocation,
 } from '../types/scrape';
 import { getClient } from '../utils/client';
-import { handleScrapeOutput } from '../utils/output';
+import { handleScrapeOutput, writeOutput } from '../utils/output';
 import { getOrigin } from '../utils/url';
 import { executeMap } from './map';
 import { getStatus } from './status';
@@ -69,6 +69,11 @@ export async function executeScrape(
     formats.push({ type: 'screenshot', fullPage: true });
   } else if (options.screenshot && !formats.includes('screenshot')) {
     formats.push('screenshot');
+  }
+
+  // Inject query format if --query was provided
+  if (options.query) {
+    formats.push({ type: 'query', prompt: options.query } as any);
   }
 
   // If no formats specified, default to markdown
@@ -135,6 +140,12 @@ export async function handleScrapeCommand(
   options: ScrapeOptions
 ): Promise<void> {
   const result = await executeScrape(options);
+
+  // Query mode: output answer directly
+  if (options.query && result.success && result.data?.answer) {
+    writeOutput(result.data.answer, options.output, !!options.output);
+    return;
+  }
 
   // Determine effective formats for output handling
   const effectiveFormats: ScrapeFormat[] =

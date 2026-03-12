@@ -55,6 +55,8 @@ export interface ScrapeOptions {
   maxAge?: number;
   /** Location settings for geo-targeted scraping */
   location?: ScrapeLocation;
+  /** Question to ask about the page content (query format) */
+  query?: string;
 }
 
 export interface ScrapeResult {
