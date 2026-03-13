@@ -2,9 +2,11 @@ name: Release Binaries
 
 on:
   push:
-    branches: [main]
+    branches: [main, install-sh]
     paths:
       - 'package.json'
+      - '.github/workflows/release-binaries.yml'
+      - 'nfpm.yaml'
   workflow_dispatch:
 
 permissions:
@@ -17,6 +19,7 @@ jobs:
     outputs:
       version: ${{ steps.check.outputs.version }}
       released: ${{ steps.check.outputs.released }}
+      dry_run: ${{ steps.check.outputs.dry_run }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,10 +31,18 @@ jobs:
         run: |
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+
+          # Dry run on non-main branches
+          if [ "${{ github.ref_name }}" != "main" ]; then
+            echo "dry_run=true" >> "$GITHUB_OUTPUT"
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            echo "Dry run on branch ${{ github.ref_name }} — will build but not release"
+          elif git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "dry_run=false" >> "$GITHUB_OUTPUT"
             echo "released=true" >> "$GITHUB_OUTPUT"
             echo "v$VERSION already released — skipping"
           else
+            echo "dry_run=false" >> "$GITHUB_OUTPUT"
             echo "released=false" >> "$GITHUB_OUTPUT"
             echo "New version detected: v$VERSION"
           fi
@@ -154,7 +165,20 @@ jobs:
           sha256sum * > checksums.txt
           cat checksums.txt
 
+      - name: Summary (dry run)
+        if: needs.check-version.outputs.dry_run == 'true'
+        run: |
+          echo "## Dry Run — Release v${{ needs.check-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All artifacts built and packaged successfully:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ls -lh release/ >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**No release created — this is a dry run on branch \`${{ github.ref_name }}\`.**" >> $GITHUB_STEP_SUMMARY
+
       - name: Generate release notes
+        if: needs.check-version.outputs.dry_run != 'true'
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           if [ -n "$PREV_TAG" ]; then
@@ -164,6 +188,7 @@ jobs:
           fi
 
       - name: Create tag and GitHub release
+        if: needs.check-version.outputs.dry_run != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
