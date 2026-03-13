@@ -54,5 +54,37 @@ cd "$OUT_DIR"
 shasum -a 256 firecrawl-* > checksums.txt 2>/dev/null || sha256sum firecrawl-* > checksums.txt
 echo "Checksums written to $OUT_DIR/checksums.txt"
 cat checksums.txt
+
+# Build Linux packages with nfpm (if available and linux binaries exist)
+if command -v nfpm &>/dev/null; then
+  VERSION="${VERSION:-$(node -p "require('$ROOT_DIR/package.json').version")}"
+  PKG_DIR="$OUT_DIR/packages"
+  mkdir -p "$PKG_DIR"
+
+  for arch_pair in "x64:amd64" "arm64:arm64"; do
+    bun_arch="${arch_pair%%:*}"
+    nfpm_arch="${arch_pair##*:}"
+    binary="$OUT_DIR/firecrawl-linux-$bun_arch"
+
+    if [[ -f "$binary" ]]; then
+      echo ""
+      echo "Packaging linux-$nfpm_arch..."
+      export BINARY="$binary" VERSION="$VERSION" ARCH="$nfpm_arch"
+      envsubst < "$ROOT_DIR/nfpm.yaml" > /tmp/nfpm-$nfpm_arch.yaml
+      for fmt in deb rpm apk archlinux; do
+        nfpm package --config /tmp/nfpm-$nfpm_arch.yaml --packager "$fmt" --target "$PKG_DIR/"
+      done
+    fi
+  done
+
+  echo ""
+  echo "Packages built in $PKG_DIR/"
+  ls -la "$PKG_DIR/"
+else
+  echo ""
+  echo "nfpm not found — skipping Linux package generation."
+  echo "Install: curl -sfL https://github.com/goreleaser/nfpm/releases/latest/download/nfpm_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m).tar.gz | tar -xz -C /usr/local/bin nfpm"
+fi
+
 echo ""
 echo "Done. Binaries are in $OUT_DIR/"

@@ -1,14 +1,43 @@
 name: Release Binaries
 
 on:
-  release:
-    types: [created]
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
 
 permissions:
   contents: write
 
 jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    name: Check for version bump
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      released: ${{ steps.check.outputs.released }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if version tag exists
+        id: check
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "v$VERSION already released — skipping"
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            echo "New version detected: v$VERSION"
+          fi
+
   build:
+    needs: check-version
+    if: needs.check-version.outputs.released == 'false'
     strategy:
       matrix:
         include:
@@ -57,16 +86,22 @@ jobs:
         with:
           name: ${{ matrix.binary }}
           path: |
+            ${{ matrix.binary }}
             ${{ matrix.binary }}.tar.gz
             ${{ matrix.binary }}.zip
           if-no-files-found: ignore
 
   release:
-    needs: build
+    needs: [check-version, build]
     runs-on: ubuntu-latest
-    name: Upload release assets
+    name: Create release and upload assets
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -74,8 +109,42 @@ jobs:
 
       - name: Collect release files
         run: |
-          mkdir -p release
+          mkdir -p release binaries
           find artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec cp {} release/ \;
+          # Copy raw binaries for nfpm packaging
+          for dir in artifacts/firecrawl-linux-*/; do
+            find "$dir" -type f ! -name "*.tar.gz" ! -name "*.zip" -exec cp {} binaries/ \;
+          done
+          chmod +x binaries/*
+          ls -la release/
+          ls -la binaries/
+
+      - name: Install nfpm
+        run: |
+          NFPM_VERSION=$(gh release view --repo goreleaser/nfpm --json tagName --jq '.tagName' | sed 's/^v//')
+          curl -sfL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz" | tar -xz -C /usr/local/bin nfpm
+          nfpm --version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Linux packages
+        run: |
+          VERSION="${{ needs.check-version.outputs.version }}"
+
+          # linux amd64
+          export BINARY=binaries/firecrawl-linux-x64 VERSION="$VERSION" ARCH=amd64
+          envsubst < nfpm.yaml > /tmp/nfpm-amd64.yaml
+          for fmt in deb rpm apk archlinux; do
+            nfpm package --config /tmp/nfpm-amd64.yaml --packager "$fmt" --target release/
+          done
+
+          # linux arm64
+          export BINARY=binaries/firecrawl-linux-arm64 ARCH=arm64
+          envsubst < nfpm.yaml > /tmp/nfpm-arm64.yaml
+          for fmt in deb rpm apk archlinux; do
+            nfpm package --config /tmp/nfpm-arm64.yaml --packager "$fmt" --target release/
+          done
+
           ls -la release/
 
       - name: Generate checksums
@@ -84,13 +153,23 @@ jobs:
           sha256sum * > checksums.txt
           cat checksums.txt
 
-      - name: Upload assets to release
+      - name: Generate release notes
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            git log --pretty=format:"- %s" "$PREV_TAG..HEAD" -- | head -50 > /tmp/release-notes.md
+          else
+            echo "Initial release" > /tmp/release-notes.md
+          fi
+
+      - name: Create tag and GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cd release
-          for file in *; do
-            gh release upload "${{ github.event.release.tag_name }}" "$file" \
-              --repo "${{ github.repository }}" \
-              --clobber
-          done
+          VERSION="v${{ needs.check-version.outputs.version }}"
+          git tag "$VERSION"
+          git push origin "$VERSION"
+          gh release create "$VERSION" release/* \
+            --repo "${{ github.repository }}" \
+            --title "Firecrawl CLI $VERSION" \
+            --notes-file /tmp/release-notes.md
