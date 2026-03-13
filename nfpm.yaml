@@ -1,0 +1,14 @@
+name: firecrawl
+description: CLI for Firecrawl - web scraping, search, and browser automation
+homepage: https://firecrawl.dev
+maintainer: Firecrawl <support@firecrawl.dev>
+license: ISC
+vendor: Firecrawl
+version: ${VERSION}
+arch: ${ARCH}
+
+contents:
+  - src: ${BINARY}
+    dst: /usr/bin/firecrawl
+    file_info:
+      mode: 0755

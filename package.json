@@ -20,7 +20,11 @@
     "test:watch": "vitest",
     "test": "vitest run",
     "publish-beta": "npm publish --tag beta",
-    "publish-prod": "npm publish --access public"
+    "publish-prod": "npm publish --access public",
+    "build:binary": "bash scripts/build-binaries.sh",
+    "build:binary:darwin": "bash scripts/build-binaries.sh darwin",
+    "build:binary:linux": "bash scripts/build-binaries.sh linux",
+    "build:binary:windows": "bash scripts/build-binaries.sh windows"
   },
   "lint-staged": {
     "*.{ts,json,md}": [

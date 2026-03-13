@@ -1,0 +1,201 @@
+name: Release Binaries
+
+on:
+  push:
+    branches: [main, install-sh]
+    paths:
+      - 'package.json'
+      - '.github/workflows/release-binaries.yml'
+      - 'nfpm.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    name: Check for version bump
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      released: ${{ steps.check.outputs.released }}
+      dry_run: ${{ steps.check.outputs.dry_run }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check if version tag exists
+        id: check
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          # Dry run on non-main branches
+          if [ "${{ github.ref_name }}" != "main" ]; then
+            echo "dry_run=true" >> "$GITHUB_OUTPUT"
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            echo "Dry run on branch ${{ github.ref_name }} — will build but not release"
+          elif git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "dry_run=false" >> "$GITHUB_OUTPUT"
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "v$VERSION already released — skipping"
+          else
+            echo "dry_run=false" >> "$GITHUB_OUTPUT"
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            echo "New version detected: v$VERSION"
+          fi
+
+  build:
+    needs: check-version
+    if: needs.check-version.outputs.released == 'false'
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: bun-linux-x64
+            binary: firecrawl-linux-x64
+          - os: ubuntu-latest
+            target: bun-linux-arm64
+            binary: firecrawl-linux-arm64
+          - os: macos-latest
+            target: bun-darwin-arm64
+            binary: firecrawl-darwin-arm64
+          - os: macos-latest
+            target: bun-darwin-x64
+            binary: firecrawl-darwin-x64
+          - os: ubuntu-latest
+            target: bun-windows-x64
+            binary: firecrawl-windows-x64.exe
+
+    runs-on: ${{ matrix.os }}
+    name: Build ${{ matrix.binary }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build binary
+        run: bun build src/index.ts --compile --target=${{ matrix.target }} --outfile ${{ matrix.binary }}
+
+      - name: Create tarball (Unix)
+        if: "!contains(matrix.binary, 'windows')"
+        run: tar -czf ${{ matrix.binary }}.tar.gz ${{ matrix.binary }}
+
+      - name: Create zip (Windows)
+        if: contains(matrix.binary, 'windows')
+        run: zip ${{ matrix.binary }}.zip ${{ matrix.binary }}
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.binary }}
+          path: |
+            ${{ matrix.binary }}
+            ${{ matrix.binary }}.tar.gz
+            ${{ matrix.binary }}.zip
+          if-no-files-found: ignore
+
+  release:
+    needs: [check-version, build]
+    runs-on: ubuntu-latest
+    name: Create release and upload assets
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - name: Collect release files
+        run: |
+          mkdir -p release binaries
+          find artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec cp {} release/ \;
+          # Copy raw binaries for nfpm packaging
+          for dir in artifacts/firecrawl-linux-*/; do
+            find "$dir" -type f ! -name "*.tar.gz" ! -name "*.zip" -exec cp {} binaries/ \;
+          done
+          chmod +x binaries/*
+          ls -la release/
+          ls -la binaries/
+
+      - name: Install nfpm
+        run: |
+          NFPM_VERSION=$(gh release view --repo goreleaser/nfpm --json tagName --jq '.tagName' | sed 's/^v//')
+          curl -sfL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz" | tar -xz -C /usr/local/bin nfpm
+          nfpm --version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Linux packages
+        run: |
+          VERSION="${{ needs.check-version.outputs.version }}"
+
+          # linux amd64
+          export BINARY=binaries/firecrawl-linux-x64 VERSION="$VERSION" ARCH=amd64
+          envsubst < nfpm.yaml > /tmp/nfpm-amd64.yaml
+          for fmt in deb rpm apk archlinux; do
+            nfpm package --config /tmp/nfpm-amd64.yaml --packager "$fmt" --target release/
+          done
+
+          # linux arm64
+          export BINARY=binaries/firecrawl-linux-arm64 ARCH=arm64
+          envsubst < nfpm.yaml > /tmp/nfpm-arm64.yaml
+          for fmt in deb rpm apk archlinux; do
+            nfpm package --config /tmp/nfpm-arm64.yaml --packager "$fmt" --target release/
+          done
+
+          ls -la release/
+
+      - name: Generate checksums
+        run: |
+          cd release
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
+      - name: Summary (dry run)
+        if: needs.check-version.outputs.dry_run == 'true'
+        run: |
+          echo "## Dry Run — Release v${{ needs.check-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All artifacts built and packaged successfully:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ls -lh release/ >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**No release created — this is a dry run on branch \`${{ github.ref_name }}\`.**" >> $GITHUB_STEP_SUMMARY
+
+      - name: Generate release notes
+        if: needs.check-version.outputs.dry_run != 'true'
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            git log --pretty=format:"- %s" "$PREV_TAG..HEAD" -- | head -50 > /tmp/release-notes.md
+          else
+            echo "Initial release" > /tmp/release-notes.md
+          fi
+
+      - name: Create tag and GitHub release
+        if: needs.check-version.outputs.dry_run != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="v${{ needs.check-version.outputs.version }}"
+          git tag "$VERSION"
+          git push origin "$VERSION"
+          gh release create "$VERSION" release/* \
+            --repo "${{ github.repository }}" \
+            --title "Firecrawl CLI $VERSION" \
+            --notes-file /tmp/release-notes.md
