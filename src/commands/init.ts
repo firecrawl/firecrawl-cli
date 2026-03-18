@@ -593,7 +593,7 @@ async function runNonInteractive(options: InitOptions): Promise<void> {
       console.log(`${stepLabel()} Authenticating with Firecrawl...`);
       try {
         let result: { apiKey: string; apiUrl?: string; teamName?: string };
-        if (options.browser || !options.apiKey) {
+        if (options.browser) {
           result = await browserLogin();
         } else {
           result = await interactiveLogin();
