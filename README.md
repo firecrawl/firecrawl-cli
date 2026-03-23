@@ -465,7 +465,9 @@ firecrawl agent abc123-def456-... --wait --poll-interval 10
 
 ---
 
-### `browser` - Browser sandbox sessions (Beta)
+### `browser` - Browser sandbox sessions (Deprecated)
+
+> **Deprecated:** Prefer `scrape` + `interact` instead. Interact lets you scrape a page and then click, fill forms, and navigate without managing sessions manually. See the `interact` command.
 
 Launch and control cloud browser sessions. By default, commands are sent to agent-browser (pre-installed in every sandbox). Use `--python` or `--node` to run Playwright code directly instead.
 
@@ -866,24 +868,22 @@ Add `-y` to any command to auto-approve tool permissions (maps to `--dangerously
 
 ### Live View
 
-Use `firecrawl browser launch --json` to get a live view URL, then pass it to your agent so you can watch it work in real-time:
+Use `firecrawl scrape <url>` + `firecrawl interact` to interact with pages. For advanced use cases requiring a raw CDP session, you can still use `firecrawl browser launch --json` to get a live view URL:
 
 ```bash
-# Launch a browser session and grab the live view URL
+# Preferred: scrape + interact workflow
+firecrawl scrape https://myapp.com
+firecrawl interact --prompt "Click on the login button and fill in the form"
+
+# Advanced: Launch a browser session and grab the live view URL
 LIVE_URL=$(firecrawl browser launch --json | jq -r '.liveViewUrl')
 
 # Pass it to Claude Code
-claude --append-system-prompt "A cloud browser session is running. Live view: $LIVE_URL -- use \`firecrawl browser\` commands to interact." \
+claude --append-system-prompt "A cloud browser session is running. Live view: $LIVE_URL -- use \`firecrawl interact\` to interact with scraped pages." \
   --dangerously-skip-permissions \
-  "QA test https://myapp.com using the cloud browser"
+  "QA test https://myapp.com"
 
-# Pass it to Codex
-codex --full-auto \
-  --config "instructions=A cloud browser session is running. Live view: $LIVE_URL -- use \`firecrawl browser\` commands to interact." \
-  "walk through the signup flow on https://example.com"
-
-# Or use the built-in workflow commands (session is auto-saved for firecrawl browser)
-firecrawl browser launch --json | jq -r '.liveViewUrl'
+# Or use the built-in workflow commands
 firecrawl claude demo https://resend.com
 ```
 

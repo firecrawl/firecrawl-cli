@@ -745,12 +745,12 @@ function createAgentCommand(): Command {
 }
 
 /**
- * Create and configure the browser command
+ * Create and configure the browser command (deprecated — prefer scrape + interact)
  */
 function createBrowserCommand(): Command {
   const browserCmd = new Command('browser')
     .description(
-      'Launch cloud browser sessions and execute Python, JavaScript, or bash code remotely via Playwright'
+      '[Deprecated: prefer scrape + interact] Launch cloud browser sessions and execute code remotely via Playwright'
     )
     .argument('[code]', 'Shorthand: auto-launch session + execute command')
     .option(
