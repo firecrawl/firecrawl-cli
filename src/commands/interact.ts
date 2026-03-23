@@ -62,7 +62,7 @@ export async function handleInteractExecute(
       );
     }
 
-    const body: Record<string, unknown> = { origin: 'cli' };
+    const body: Record<string, unknown> = { origin: 'cli', integration: 'cli' };
 
     if (options.code) {
       body.code = options.code;
