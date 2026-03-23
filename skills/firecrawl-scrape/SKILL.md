@@ -15,7 +15,7 @@ Scrape one or more URLs. Returns clean, LLM-optimized markdown. Multiple URLs ar
 
 - You have a specific URL and want its content
 - The page is static or JS-rendered (SPA)
-- Step 2 in the [workflow escalation pattern](firecrawl-cli): search → **scrape** → map → crawl → browser
+- Step 2 in the [workflow escalation pattern](firecrawl-cli): search → **scrape** → map → crawl → interact
 
 ## Quick start
 
@@ -55,7 +55,7 @@ firecrawl scrape "https://example.com/pricing" --query "What is the enterprise p
 ## Tips
 
 - **Prefer plain scrape over `--query`.** Scrape to a file, then use `grep`, `head`, or read the markdown directly — you can search and reason over the full content yourself. Use `--query` only when you want a single targeted answer without saving the page (costs 5 extra credits).
-- **Try scrape before browser.** Scrape handles static pages and JS-rendered SPAs. Only escalate to browser when you need interaction (clicks, form fills, pagination).
+- **Try scrape before interact.** Scrape handles static pages and JS-rendered SPAs. Only escalate to `interact` when you need interaction (clicks, form fills, pagination).
 - Multiple URLs are scraped concurrently — check `firecrawl --status` for your concurrency limit.
 - Single format outputs raw content. Multiple formats (e.g., `--format markdown,links`) output JSON.
 - Always quote URLs — shell interprets `?` and `&` as special characters.
@@ -64,5 +64,5 @@ firecrawl scrape "https://example.com/pricing" --query "What is the enterprise p
 ## See also
 
 - [firecrawl-search](../firecrawl-search/SKILL.md) — find pages when you don't have a URL
-- [firecrawl-browser](../firecrawl-browser/SKILL.md) — when scrape can't get the content (interaction needed)
+- [firecrawl-browser](../firecrawl-browser/SKILL.md) — when scrape can't get the content, use `interact` to click, fill forms, etc.
 - [firecrawl-download](../firecrawl-download/SKILL.md) — bulk download an entire site to local files

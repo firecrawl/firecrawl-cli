@@ -15,7 +15,7 @@ Bulk extract content from a website. Crawls pages following links up to a depth/
 
 - You need content from many pages on a site (e.g., all `/docs/`)
 - You want to extract an entire site section
-- Step 4 in the [workflow escalation pattern](firecrawl-cli): search → scrape → map → **crawl** → browser
+- Step 4 in the [workflow escalation pattern](firecrawl-cli): search → scrape → map → **crawl** → interact
 
 ## Quick start
 
