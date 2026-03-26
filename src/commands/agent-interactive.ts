@@ -521,6 +521,7 @@ export async function runInteractiveAgent(options: {
         }
 
         resumeTui.resume();
+        resumeTui.startWorking();
         currentMessage = followUp;
       }
     } catch (error) {
@@ -743,6 +744,7 @@ export async function runInteractiveAgent(options: {
     });
 
     // ── Conversation loop ─────────────────────────────────────────────────
+    tui.startWorking();
     let currentMessage = userMessage;
     while (true) {
       const result = await agent.prompt(currentMessage);
@@ -779,8 +781,9 @@ export async function runInteractiveAgent(options: {
         break;
       }
 
-      // Remount TUI for next turn
+      // Remount TUI for next turn — show spinner immediately
       tui.resume();
+      tui.startWorking();
       currentMessage = followUp;
     }
   } catch (error) {

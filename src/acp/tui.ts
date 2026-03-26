@@ -220,6 +220,8 @@ export interface TUIHandle {
   }) => void;
   addCredits: (n: number) => void;
 
+  /** Show working spinner immediately (call when starting a new turn) */
+  startWorking: () => void;
   section: (name: string) => void;
   printStatus: () => void;
   printSummary: () => void;
@@ -377,6 +379,10 @@ export function startTUI(opts: {
 
     addCredits(n: number) {
       firecrawlCredits += n;
+    },
+
+    startWorking() {
+      showWorking();
     },
 
     section(name: string) {
