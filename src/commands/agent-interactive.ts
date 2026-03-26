@@ -672,9 +672,6 @@ export async function runInteractiveAgent(options: {
     format,
   });
 
-  console.log(`\nSession ${session.id}`);
-  console.log(`Output  ${session.outputPath}`);
-
   // ── Build message ─────────────────────────────────────────────────────
   const systemPrompt = buildSystemPrompt({
     format,
@@ -685,12 +682,22 @@ export async function runInteractiveAgent(options: {
   if (urls.trim()) parts.push(`Start from these URLs: ${urls}`);
   const userMessage = parts.join('. ') + '.';
 
-  // ── Connect via ACP ───────────────────────────────────────────────────
-  console.log(`\n🔥 ${bold('Firecrawl Agent')}`);
+  // ── Banner ─────────────────────────────────────────────────────────────
+  const orange = (s: string) =>
+    process.stderr.isTTY ? `\x1b[38;5;208m${s}\x1b[0m` : s;
   console.log(
-    `   ${selectedAgent.displayName} · ${format.toUpperCase()} · Session ${session.id}`
+    orange(`
+   █████╗  ██████╗ ███████╗███╗   ██╗████████╗
+  ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝
+  ███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║
+  ██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║
+  ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║
+  ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝`)
   );
-  console.log(dim('   Press Ctrl+C to cancel · type "done" to finish\n'));
+  console.log(
+    `\n  ${selectedAgent.displayName} · ${format.toUpperCase()} · Session ${session.id}`
+  );
+  console.log(dim(`  Press Ctrl+C to cancel · type "done" to finish\n`));
 
   // Start TUI
   const sessionDir = getSessionDir(session.id);
