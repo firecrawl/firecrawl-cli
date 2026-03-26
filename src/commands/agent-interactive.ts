@@ -195,13 +195,13 @@ ${outputInstructions[opts.format] || outputInstructions.json}
 
 ## Follow-Up Suggestions
 
-After completing the output file, always end your message with 2-3 suggested follow-up actions the user might want. Format them as a numbered list, like:
+After completing the output file, always end your message with 2-3 suggested follow-up questions the user can ask. Frame them as questions, not actions. Like:
 
 \`\`\`
-Next steps:
-1. Add funding amounts and team sizes
-2. Filter to only companies founded after 2020
-3. Export as JSON with nested category tags
+Want to go deeper?
+1. Want me to add star counts and primary language for each repo?
+2. Should I expand this to the top 25 trending repos?
+3. Want a comparison across languages (Python, TypeScript, Rust)?
 \`\`\`
 
 These should be specific to the data just gathered — not generic. Think about what would make the dataset more useful.`;
