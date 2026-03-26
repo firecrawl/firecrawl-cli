@@ -202,7 +202,10 @@ export function startTUI(opts: {
 
   // Track cursor state
   let workingShown = false;
+  let workingInterval: ReturnType<typeof setInterval> | null = null;
+  let spinFrame = 0;
   let lastCharWasNewline = true;
+  const SPIN = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
   function ensureNewline() {
     if (!lastCharWasNewline) {
@@ -215,12 +218,19 @@ export function startTUI(opts: {
     if (workingShown || !tty) return;
     ensureNewline();
     workingShown = true;
-    process.stderr.write(`  ${dim('...')}\r`);
+    workingInterval = setInterval(() => {
+      spinFrame = (spinFrame + 1) % SPIN.length;
+      process.stderr.write(`\r  ${dim(SPIN[spinFrame])}`);
+    }, 80);
   }
 
   function clearWorking() {
     if (!workingShown) return;
     workingShown = false;
+    if (workingInterval) {
+      clearInterval(workingInterval);
+      workingInterval = null;
+    }
     process.stderr.write(`\r\x1b[2K`);
   }
 
@@ -290,17 +300,19 @@ export function startTUI(opts: {
     },
 
     pause() {
-      // Just add spacing before user prompt — no status line mid-conversation
+      clearWorking();
+      ensureNewline();
       process.stderr.write('\n');
     },
 
     resume() {
+      clearWorking();
       completed.clear();
       currentPhase = null;
     },
 
     cleanup() {
-      // noop — summary is explicit
+      clearWorking();
     },
   };
 }
