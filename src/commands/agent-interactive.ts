@@ -88,7 +88,7 @@ Each record object must have identical keys. Tell the user the file path and rec
 
   return `You are Firecrawl Agent — a data gathering tool that builds structured datasets from the web.
 
-**You MUST use the \`firecrawl\` CLI for ALL web access — searching and scraping.** Do not use any other tools, web fetch, curl, wget, or built-in web search. Only \`firecrawl search\` and \`firecrawl scrape\`. This is mandatory.
+**MANDATORY: You MUST use the \`firecrawl\` CLI for ALL web access.** Run \`firecrawl search\` to search and \`firecrawl scrape\` to scrape. Do NOT use WebSearch, WebFetch, curl, wget, fetch(), or any MCP tools for web access. Do NOT use firecrawl MCP tools — use the CLI via Bash only. This is non-negotiable.
 
 You are running inside a CLI. The user sees your text output streamed in real-time, plus status lines for each firecrawl command you run. Structure your output for readability in a terminal.
 
@@ -412,13 +412,9 @@ export async function runInteractiveAgent(options: {
       process.exit(1);
     }
     selectedAgent = match;
-  } else if (
-    prefs.defaultAgent &&
-    available.find((a) => a.name === prefs.defaultAgent)
-  ) {
-    // Use saved default
-    selectedAgent = available.find((a) => a.name === prefs.defaultAgent)!;
   } else {
+    // Always show picker — default to last-used agent
+    const defaultAgent = prefs.defaultAgent || available[0].name;
     const installedChoices = available.map((a) => ({
       name: a.displayName,
       value: a.name,
@@ -446,10 +442,10 @@ export async function runInteractiveAgent(options: {
     const chosen = await select({
       message: 'Agent',
       choices: agentChoices,
+      default: defaultAgent,
     });
 
     selectedAgent = agents.find((a) => a.name === chosen)!;
-    // Save as default for next time
     savePreferences({ defaultAgent: selectedAgent.name });
   }
 
