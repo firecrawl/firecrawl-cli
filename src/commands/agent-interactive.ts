@@ -123,7 +123,17 @@ Scraping now...
 \`\`\`
 
 ### Phase 3: Extract Data
-Scrape each source. As you extract data, report progress:
+
+**IMPORTANT: Use subagents for all scraping and parsing.** This keeps your context window clean.
+
+${SUBAGENT_INSTRUCTIONS}
+
+For each source (or group of related sources), spawn a subagent with a prompt like:
+"Scrape [URL] using firecrawl. Extract records with these fields: [field list]. Return ONLY a JSON array of objects — no commentary, no markdown, just the JSON array."
+
+Launch all extraction subagents in a SINGLE message (parallel). Each subagent handles the heavy work (scraping, reading large pages, parsing) and returns just the structured records.
+
+After all subagents return, report progress:
 
 \`\`\`
 Extracted 50 from Forbes AI 50
