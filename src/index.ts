@@ -18,6 +18,7 @@ import { handleCrawlCommand } from './commands/crawl';
 import { handleMapCommand } from './commands/map';
 import { handleSearchCommand } from './commands/search';
 import { handleAgentCommand } from './commands/agent';
+import { runInteractiveAgent } from './commands/agent-interactive';
 import {
   handleBrowserLaunch,
   handleBrowserExecute,
@@ -642,8 +643,22 @@ function createAgentCommand(): Command {
   const agentCmd = new Command('agent')
     .description('Run an AI agent to extract data from the web')
     .argument(
-      '<prompt-or-job-id>',
+      '[prompt-or-job-id]',
       'Natural language prompt describing data to extract, or job ID to check status'
+    )
+    .option(
+      '-i, --interactive',
+      'Interactive mode: detect ACP providers, gather data with local agent',
+      false
+    )
+    .option(
+      '--provider <name>',
+      'ACP provider to use (claude, codex, opencode)'
+    )
+    .option('--session <id>', 'Resume an existing interactive session')
+    .option(
+      '--format <format>',
+      'Output format for interactive mode (csv, json, report)'
     )
     .option('--urls <urls>', 'Comma-separated URLs to focus extraction on')
     .option(
@@ -687,7 +702,25 @@ function createAgentCommand(): Command {
     .option('-o, --output <path>', 'Output file path (default: stdout)')
     .option('--json', 'Output as JSON format', false)
     .option('--pretty', 'Pretty print JSON output', false)
+    .option('-y, --yes', 'Auto-approve all tool permissions', false)
     .action(async (promptOrJobId, options) => {
+      // Interactive mode: no prompt, or -i flag, or --session, or --provider
+      const isInteractive =
+        !promptOrJobId ||
+        options.interactive ||
+        options.session ||
+        options.provider;
+
+      if (isInteractive) {
+        await runInteractiveAgent({
+          provider: options.provider,
+          session: options.session,
+          format: options.format,
+          yes: options.yes,
+        });
+        return;
+      }
+
       // Auto-detect if it's a job ID (UUID format)
       const isStatusCheck = options.status || isJobId(promptOrJobId);
 

@@ -1,0 +1,299 @@
+/**
+ * Interactive ACP agent for data gathering.
+ *
+ * Detects locally-installed ACP providers (Claude Code, Codex, OpenCode),
+ * walks the user through an interactive flow to describe the data they need,
+ * then launches the selected provider with firecrawl CLI tools to gather,
+ * structure, and deliver datasets as CSV, JSON, or markdown.
+ */
+
+import {
+  type ACPProvider,
+  createSession,
+  detectProviders,
+  getSessionDir,
+  listSessions,
+  loadSession,
+  updateSession,
+} from '../utils/acp';
+import { type Backend, BACKENDS, launchAgent } from './experimental/backends';
+import {
+  FIRECRAWL_TOOLS_BLOCK,
+  SUBAGENT_INSTRUCTIONS,
+  askPermissionMode,
+} from './experimental/shared';
+
+// ─── Suggestions ────────────────────────────────────────────────────────────
+
+const SUGGESTIONS = [
+  {
+    name: 'Top 50 AI startups — name, funding, team size, product URL',
+    value:
+      'Find the top 50 AI startups with their name, funding amount, team size, and product URL',
+  },
+  {
+    name: 'SaaS pricing pages — company, tiers, price points, features per tier',
+    value:
+      'Extract pricing data from major SaaS companies including company name, tier names, price points, and features per tier',
+  },
+  {
+    name: 'YC W24 batch — company, founder, one-liner, industry, stage',
+    value:
+      'Find all Y Combinator W24 batch companies with company name, founder names, one-liner description, industry, and funding stage',
+  },
+  {
+    name: 'GitHub trending repos — repo, stars, language, description, author',
+    value:
+      'Extract GitHub trending repositories with repo name, star count, primary language, description, and author',
+  },
+];
+
+// ─── System prompt builder ──────────────────────────────────────────────────
+
+function buildSystemPrompt(opts: {
+  format: string;
+  sessionDir: string;
+}): string {
+  const outputInstructions: Record<string, string> = {
+    csv: `Write a CSV file to \`${opts.sessionDir}/output.csv\`.
+- First row must be column headers.
+- Use proper CSV escaping (quote fields containing commas, newlines, or quotes).
+- Every row must have the same number of columns.
+- Tell the user the file path and record count when done.`,
+
+    json: `Write a JSON file to \`${opts.sessionDir}/output.json\`.
+Use this structure:
+\`\`\`json
+{
+  "metadata": {
+    "query": "...",
+    "sources": ["url1", "url2"],
+    "extractedAt": "ISO-8601",
+    "totalRecords": N
+  },
+  "records": [ { ... }, ... ]
+}
+\`\`\`
+Each record object must have identical keys. Tell the user the file path and record count when done.`,
+
+    report: `Write a markdown file to \`${opts.sessionDir}/output.md\`.
+- Start with a brief summary (1-2 lines).
+- Render all data as a markdown table.
+- If too many columns, use multiple tables grouped by category.
+- Tell the user the file path and record count when done.`,
+  };
+
+  return `You are a data gathering agent powered by Firecrawl. You orchestrate parallel agents to discover sources, extract structured records, and consolidate them into clean, importable datasets.
+
+**CRITICAL: You are building a DATASET, not writing a report.** Think spreadsheet rows, not document sections. Every record must have the same fields. The output must be directly importable into a spreadsheet, database, or API.
+
+${FIRECRAWL_TOOLS_BLOCK}
+
+## Your Strategy
+
+### Phase 1: Schema Design
+Before searching anything, analyze the user's request and determine:
+1. What entity type are you collecting? (companies, people, products, events, etc.)
+2. What fields/columns should each record have?
+3. **IMPORTANT: Print the proposed schema to the user and ask them to confirm before proceeding.** Example:
+   "I'll collect these fields: \`name\`, \`funding\`, \`team_size\`, \`category\`, \`website\`, \`source_url\`. Look good? Or would you like to add/remove any fields?"
+4. Wait for user confirmation. They may want to tweak the schema.
+
+### Phase 2: Source Discovery
+- Use \`firecrawl search\` with multiple queries to find high-quality data sources.
+- If seed URLs are provided, use \`firecrawl map\` to discover subpages.
+- Identify 3-10 high-quality sources depending on request scope.
+
+### Phase 3: Parallel Extraction
+Spawn parallel subagents — one per data source or source cluster.
+
+${SUBAGENT_INSTRUCTIONS}
+
+Each subagent should:
+1. Scrape its assigned source(s) using \`firecrawl scrape <url>\` or \`firecrawl scrape <url> --format json\`
+2. Extract records matching the confirmed schema
+3. Return results as a JSON array of objects with consistent field names
+4. Include \`source_url\` in every record for provenance
+
+### Phase 4: Consolidation
+After all subagents return:
+1. Merge all records into a single array
+2. Deduplicate by a reasonable key (name + URL, or similar)
+3. Normalize field values (consistent date formats, trim whitespace, etc.)
+4. Fill missing fields with empty string (CSV) or null (JSON) — never omit fields
+5. Write the final output file
+
+## Data Quality Rules
+- Every record MUST have the exact same set of fields
+- Never fabricate data — leave fields empty if not found
+- Always include \`source_url\` for provenance
+- Deduplicate records by a reasonable primary key
+- Normalize values (consistent capitalization, date formats, etc.)
+
+## Output Format
+${outputInstructions[opts.format] || outputInstructions.json}
+
+Start by analyzing the request and proposing a schema.`;
+}
+
+// ─── Interactive flow ───────────────────────────────────────────────────────
+
+export async function runInteractiveAgent(options: {
+  provider?: string;
+  session?: string;
+  format?: string;
+  yes?: boolean;
+}): Promise<void> {
+  const { input, select } = await import('@inquirer/prompts');
+
+  // ── Resume session ──────────────────────────────────────────────────────
+  if (options.session) {
+    const session = loadSession(options.session);
+    if (!session) {
+      console.error(`Session not found: ${options.session}`);
+      process.exit(1);
+    }
+
+    console.log(`\nResuming session ${session.id}`);
+    console.log(`  Provider: ${session.provider}`);
+    console.log(`  Prompt: ${session.prompt}`);
+    console.log(`  Format: ${session.format}`);
+    console.log(`  Iterations: ${session.iterations}\n`);
+
+    const refinement = await input({
+      message: 'What would you like to refine or add?',
+    });
+
+    const backend = session.provider as Backend;
+    const skipPermissions = options.yes || (await askPermissionMode(backend));
+
+    updateSession(session.id, {
+      iterations: session.iterations + 1,
+    });
+
+    const systemPrompt = buildSystemPrompt({
+      format: session.format,
+      sessionDir: getSessionDir(session.id),
+    });
+
+    const userMessage = `Continue from previous session. Original request: "${session.prompt}". Schema fields: ${session.schema.join(', ')}. Output already at: ${session.outputPath}. New instruction: ${refinement}`;
+
+    console.log(`\nLaunching ${BACKENDS[backend].displayName}...\n`);
+    launchAgent(backend, systemPrompt, userMessage, skipPermissions);
+    return;
+  }
+
+  // ── Detect providers ────────────────────────────────────────────────────
+  const providers = detectProviders();
+  const available = providers.filter((p) => p.available);
+
+  if (available.length === 0) {
+    console.error(
+      '\nNo ACP providers found. Install one of:\n' +
+        '  npm install -g @anthropic-ai/claude-code\n' +
+        '  npm install -g @openai/codex\n' +
+        '  See https://opencode.ai/docs/cli/\n'
+    );
+    process.exit(1);
+  }
+
+  // ── Select provider ─────────────────────────────────────────────────────
+  let selectedProvider: ACPProvider;
+
+  if (options.provider) {
+    const match = providers.find((p) => p.name === options.provider);
+    if (!match || !match.available) {
+      console.error(
+        `Provider "${options.provider}" is not installed. Available: ${available.map((p) => p.name).join(', ')}`
+      );
+      process.exit(1);
+    }
+    selectedProvider = match;
+  } else if (available.length === 1) {
+    selectedProvider = available[0];
+    console.log(
+      `\nUsing ${selectedProvider.displayName} (only provider detected)\n`
+    );
+  } else {
+    const providerChoices = providers.map((p) => ({
+      name: p.available
+        ? `● ${p.displayName} (${p.bin})`
+        : `○ ${p.displayName} (not installed)`,
+      value: p.name,
+      disabled: !p.available ? 'not installed' : false,
+    }));
+
+    const chosen = await select({
+      message: 'Which ACP provider?',
+      choices: providerChoices,
+    });
+
+    selectedProvider = providers.find((p) => p.name === chosen)!;
+  }
+
+  // ── Gather prompt ───────────────────────────────────────────────────────
+  const promptChoice = await select({
+    message: 'What data do you want to gather?',
+    choices: [
+      ...SUGGESTIONS.map((s) => ({ name: s.name, value: s.value })),
+      { name: 'Describe your own...', value: '__custom__' },
+    ],
+  });
+
+  let prompt: string;
+  if (promptChoice === '__custom__') {
+    prompt = await input({
+      message: 'Describe the data you want to collect:',
+      validate: (v: string) => (v.trim() ? true : 'Prompt is required'),
+    });
+  } else {
+    prompt = promptChoice;
+  }
+
+  // ── Seed URLs ───────────────────────────────────────────────────────────
+  const urls = await input({
+    message:
+      'Any URLs to start from? (comma-separated, leave blank to auto-discover)',
+    default: '',
+  });
+
+  // ── Output format ───────────────────────────────────────────────────────
+  const format =
+    options.format ||
+    (await select({
+      message: 'Output format?',
+      choices: [
+        { name: 'CSV (spreadsheet-ready)', value: 'csv' },
+        { name: 'JSON (structured, API-ready)', value: 'json' },
+        { name: 'Markdown table (human-readable)', value: 'report' },
+      ],
+    }));
+
+  // ── Create session ──────────────────────────────────────────────────────
+  const session = createSession({
+    provider: selectedProvider.name,
+    prompt,
+    schema: [], // agent will confirm schema interactively
+    format,
+  });
+
+  console.log(`\nSession: ${session.id}`);
+  console.log(`Output: ${session.outputPath}\n`);
+
+  // ── Permission mode ─────────────────────────────────────────────────────
+  const backend = selectedProvider.name as Backend;
+  const skipPermissions = options.yes || (await askPermissionMode(backend));
+
+  // ── Build and launch ────────────────────────────────────────────────────
+  const systemPrompt = buildSystemPrompt({
+    format,
+    sessionDir: getSessionDir(session.id),
+  });
+
+  const parts = [`Gather data: ${prompt}`];
+  if (urls.trim()) parts.push(`Start from these URLs: ${urls}`);
+  const userMessage = parts.join('. ') + '.';
+
+  console.log(`Launching ${selectedProvider.displayName}...\n`);
+  launchAgent(backend, systemPrompt, userMessage, skipPermissions);
+}
