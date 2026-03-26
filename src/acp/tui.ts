@@ -200,11 +200,20 @@ export function startTUI(opts: {
     process.stderr.write(`\n${sectionHeader(names[phase])}\n\n`);
   }
 
-  // Track if we're showing a working indicator
+  // Track cursor state
   let workingShown = false;
+  let lastCharWasNewline = true;
+
+  function ensureNewline() {
+    if (!lastCharWasNewline) {
+      process.stdout.write('\n');
+      lastCharWasNewline = true;
+    }
+  }
 
   function showWorking() {
     if (workingShown || !tty) return;
+    ensureNewline();
     workingShown = true;
     process.stderr.write(`  ${dim('...')}\r`);
   }
@@ -212,13 +221,16 @@ export function startTUI(opts: {
   function clearWorking() {
     if (!workingShown) return;
     workingShown = false;
-    process.stderr.write(`\r\x1b[2K`); // clear the line
+    process.stderr.write(`\r\x1b[2K`);
   }
 
   return {
     onText(text: string) {
       clearWorking();
       process.stdout.write(text);
+      if (text.length > 0) {
+        lastCharWasNewline = text[text.length - 1] === '\n';
+      }
     },
 
     onToolCall(call: ToolCallInfo) {
@@ -244,6 +256,7 @@ export function startTUI(opts: {
         completed.add(info.dedupeKey);
 
         clearWorking();
+        ensureNewline();
         ensurePhase(info.phase);
         const icon = call.status === 'completed' ? green('✓') : red('✗');
         process.stderr.write(`  ${icon} ${info.label}\n`);
@@ -260,15 +273,18 @@ export function startTUI(opts: {
     },
 
     section(name: string) {
-      currentPhase = null; // reset so auto-phase doesn't conflict
+      ensureNewline();
+      currentPhase = null;
       process.stderr.write(`\n${sectionHeader(name)}\n\n`);
     },
 
     printStatus() {
+      ensureNewline();
       process.stderr.write(`${statusLine()}\n`);
     },
 
     printSummary() {
+      ensureNewline();
       process.stderr.write(`\n${sectionFooter()}\n`);
       process.stderr.write(`${statusLine()}\n`);
     },
