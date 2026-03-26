@@ -278,6 +278,69 @@ function buildCallbacks(sessionDir: string): {
   };
 }
 
+// ─── Session end ────────────────────────────────────────────────────────────
+
+async function showSessionEnd(
+  sessionId: string,
+  outputPath: string,
+  sessionDir: string
+): Promise<void> {
+  const { select } = await import('@inquirer/prompts');
+  const fs = await import('fs');
+  const { execSync } = await import('child_process');
+
+  console.log(`\nSession ${sessionId} saved.`);
+
+  // Check what files exist in the session dir
+  const files: string[] = [];
+  if (fs.existsSync(sessionDir)) {
+    for (const f of fs.readdirSync(sessionDir)) {
+      if (f !== 'session.json') {
+        files.push(f);
+      }
+    }
+  }
+
+  if (files.length === 0) {
+    console.log(`Output  ${outputPath}`);
+    return;
+  }
+
+  // Build choices
+  const choices: Array<{ name: string; value: string }> = [];
+  for (const f of files) {
+    const fullPath = `${sessionDir}/${f}`;
+    const stat = fs.statSync(fullPath);
+    const size =
+      stat.size > 1024 ? `${Math.round(stat.size / 1024)}KB` : `${stat.size}B`;
+    choices.push({ name: `Open ${f} (${size})`, value: `file:${fullPath}` });
+  }
+  choices.push({ name: 'Open session folder', value: `folder:${sessionDir}` });
+  choices.push({ name: 'Done', value: 'done' });
+
+  const action = await select({
+    message: 'What next?',
+    choices,
+  });
+
+  if (action === 'done') return;
+
+  const [type, path] = action.split(':');
+  const target = action.slice(type!.length + 1); // handle paths with colons
+
+  try {
+    if (process.platform === 'darwin') {
+      execSync(`open "${target}"`);
+    } else if (process.platform === 'linux') {
+      execSync(`xdg-open "${target}"`);
+    } else if (process.platform === 'win32') {
+      execSync(`start "" "${target}"`);
+    }
+  } catch {
+    console.log(`Path: ${target}`);
+  }
+}
+
 // ─── Interactive flow ───────────────────────────────────────────────────────
 
 export async function runInteractiveAgent(options: {
@@ -561,8 +624,11 @@ export async function runInteractiveAgent(options: {
         trimmed === 'exit' ||
         trimmed === 'quit'
       ) {
-        process.stderr.write(`\nSession ${session.id} saved.\n`);
-        process.stderr.write(`Output  ${session.outputPath}\n`);
+        await showSessionEnd(
+          session.id,
+          session.outputPath,
+          getSessionDir(session.id)
+        );
         break;
       }
 
