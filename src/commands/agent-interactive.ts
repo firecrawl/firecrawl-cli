@@ -461,22 +461,74 @@ export async function runInteractiveAgent(options: {
       sessionDir: getSessionDir(session.id),
     });
 
-    const agent = await connectToAgent({
-      bin: resumeAgent.bin,
-      systemPrompt,
-      callbacks: {
-        onText: (text) => resumeTui.onText(text),
-        onToolCall: (call) => resumeTui.onToolCall(call),
-        onToolCallUpdate: (call) => resumeTui.onToolCallUpdate(call),
-        onUsage: (update) => resumeTui.onUsage(update),
-      },
-    });
+    let agent: Awaited<ReturnType<typeof connectToAgent>> | null = null;
+
+    const handleInterrupt = () => {
+      resumeTui.cleanup();
+      process.stderr.write('\nInterrupted.\n');
+      if (agent) {
+        agent.cancel().catch(() => {});
+        agent.close();
+      }
+      process.exit(0);
+    };
+    process.on('SIGINT', handleInterrupt);
 
     try {
-      await agent.prompt(userMessage);
-      resumeTui.printSummary();
+      agent = await connectToAgent({
+        bin: resumeAgent.bin,
+        systemPrompt,
+        callbacks: {
+          onText: (text) => resumeTui.onText(text),
+          onToolCall: (call) => resumeTui.onToolCall(call),
+          onToolCallUpdate: (call) => resumeTui.onToolCallUpdate(call),
+          onUsage: (update) => resumeTui.onUsage(update),
+        },
+      });
+
+      // Conversation loop (same as main flow)
+      let currentMessage = userMessage;
+      while (true) {
+        const result = await agent.prompt(currentMessage);
+        resumeTui.pause();
+        process.stdout.write('\n');
+
+        if (result.stopReason !== 'end_turn') {
+          resumeTui.printSummary();
+          break;
+        }
+
+        const followUp = await input({
+          message: '→',
+          default: '',
+        });
+
+        const trimmed = followUp.trim().toLowerCase();
+        if (
+          !trimmed ||
+          trimmed === 'done' ||
+          trimmed === 'exit' ||
+          trimmed === 'quit'
+        ) {
+          resumeTui.printSummary();
+          await showSessionEnd(
+            session.id,
+            session.outputPath,
+            getSessionDir(session.id)
+          );
+          break;
+        }
+
+        resumeTui.resume();
+        currentMessage = followUp;
+      }
+    } catch (error) {
+      resumeTui.cleanup();
+      console.error('\nError:', error instanceof Error ? error.message : error);
+      process.exit(1);
     } finally {
-      agent.close();
+      process.removeListener('SIGINT', handleInterrupt);
+      if (agent) agent.close();
     }
     return;
   }
