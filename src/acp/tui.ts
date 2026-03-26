@@ -1,26 +1,18 @@
 /**
- * Lightweight TUI for the Firecrawl agent — no dependencies.
+ * Firecrawl agent display — inline terminal output, no ANSI tricks.
  *
- * Shows:
- * - Agent text streaming to stdout
- * - Tool calls as start/done lines (only firecrawl ops)
- * - A persistent status bar on the last line: session | agent | credits | time | format
+ * Prints tool calls and status summaries in the normal terminal flow.
+ * Works in any terminal, pipeable, agent-friendly.
  */
 
 import type { ToolCallInfo } from './client';
 
-// ─── ANSI helpers ───────────────────────────────────────────────────────────
+// ─── Dim helper (only if TTY) ───────────────────────────────────────────────
 
-const DIM = '\x1b[2m';
-const RESET = '\x1b[0m';
-const GREEN = '\x1b[32m';
-const RED = '\x1b[31m';
-const CYAN = '\x1b[36m';
-const YELLOW = '\x1b[33m';
-const BOLD = '\x1b[1m';
-const SAVE = '\x1b[s';
-const RESTORE = '\x1b[u';
-const CLEAR_LINE = '\x1b[2K';
+const isTTY = process.stderr.isTTY;
+const dim = (s: string) => (isTTY ? `\x1b[2m${s}\x1b[0m` : s);
+const green = (s: string) => (isTTY ? `\x1b[32m${s}\x1b[0m` : s);
+const red = (s: string) => (isTTY ? `\x1b[31m${s}\x1b[0m` : s);
 
 // ─── Tool call label extraction ─────────────────────────────────────────────
 
@@ -80,62 +72,6 @@ function describeCall(call: ToolCallInfo, sessionDir: string): string | null {
   return null;
 }
 
-// ─── Status bar ─────────────────────────────────────────────────────────────
-
-const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-
-interface TUIState {
-  pending: Map<string, string>;
-  credits: number;
-  startedAt: number;
-  sessionId: string;
-  agentName: string;
-  format: string;
-  sessionDir: string;
-  spinnerFrame: number;
-  statusVisible: boolean;
-  interval: ReturnType<typeof setInterval> | null;
-}
-
-function formatStatusBar(state: TUIState): string {
-  const elapsed = Math.round((Date.now() - state.startedAt) / 1000);
-  const mins = Math.floor(elapsed / 60);
-  const secs = elapsed % 60;
-  const time = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-  const fmt = state.format.toUpperCase();
-  const active = state.pending.size;
-
-  const spinner =
-    active > 0 ? `${YELLOW}${SPINNER[state.spinnerFrame]}${RESET} ` : '';
-
-  return (
-    `${DIM}─${RESET} ` +
-    `${spinner}` +
-    `${BOLD}${state.sessionId}${RESET}` +
-    `${DIM} · ${RESET}${state.agentName}` +
-    `${DIM} · ${RESET}${CYAN}${state.credits} credits${RESET}` +
-    `${DIM} · ${RESET}${time}` +
-    `${DIM} · ${RESET}${YELLOW}${fmt}${RESET}` +
-    (active > 0 ? `${DIM} · ${RESET}${active} active` : '')
-  );
-}
-
-function writeStatusBar(state: TUIState): void {
-  // Move to bottom, write status, restore cursor
-  const rows = process.stdout.rows || 24;
-  process.stderr.write(
-    `${SAVE}\x1b[${rows};0H${CLEAR_LINE}${formatStatusBar(state)}${RESTORE}`
-  );
-  state.statusVisible = true;
-}
-
-function clearStatusBar(state: TUIState): void {
-  if (!state.statusVisible) return;
-  const rows = process.stdout.rows || 24;
-  process.stderr.write(`${SAVE}\x1b[${rows};0H${CLEAR_LINE}${RESTORE}`);
-  state.statusVisible = false;
-}
-
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 export interface TUIHandle {
@@ -143,11 +79,10 @@ export interface TUIHandle {
   onToolCall: (call: ToolCallInfo) => void;
   onToolCallUpdate: (call: ToolCallInfo) => void;
   addCredits: (n: number) => void;
-  /** Call before user input prompts */
+  /** Print a status summary line */
+  printStatus: () => void;
   pause: () => void;
-  /** Call after user input to resume */
   resume: () => void;
-  /** Final cleanup */
   cleanup: () => void;
 }
 
@@ -157,31 +92,23 @@ export function startTUI(opts: {
   format: string;
   sessionDir: string;
 }): TUIHandle {
-  const state: TUIState = {
-    pending: new Map(),
-    credits: 0,
-    startedAt: Date.now(),
-    sessionId: opts.sessionId,
-    agentName: opts.agentName,
-    format: opts.format,
-    sessionDir: opts.sessionDir,
-    spinnerFrame: 0,
-    statusVisible: false,
-    interval: null,
-  };
+  const pending = new Map<string, string>();
+  let credits = 0;
+  const startedAt = Date.now();
 
-  // Reserve bottom line by setting scroll region
-  const rows = process.stdout.rows || 24;
-  process.stderr.write(`\x1b[1;${rows - 1}r`); // scroll region = all but last line
+  function elapsed(): string {
+    const secs = Math.round((Date.now() - startedAt) / 1000);
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  }
 
-  // Start status bar ticker
-  state.interval = setInterval(() => {
-    state.spinnerFrame = (state.spinnerFrame + 1) % SPINNER.length;
-    writeStatusBar(state);
-  }, 80);
-
-  // Initial render
-  writeStatusBar(state);
+  function statusLine(): string {
+    const fmt = opts.format.toUpperCase();
+    return dim(
+      `── ${opts.sessionId} · ${opts.agentName} · ${credits} credits · ${elapsed()} · ${fmt}`
+    );
+  }
 
   return {
     onText(text: string) {
@@ -189,59 +116,42 @@ export function startTUI(opts: {
     },
 
     onToolCall(call: ToolCallInfo) {
-      const label = describeCall(call, state.sessionDir);
+      const label = describeCall(call, opts.sessionDir);
       if (!label) return;
-      state.pending.set(call.id, label);
-      process.stderr.write(`  ${DIM}·${RESET} ${label}\n`);
+      pending.set(call.id, label);
+      process.stderr.write(`  ${dim('·')} ${label}\n`);
     },
 
     onToolCallUpdate(call: ToolCallInfo) {
-      if (!state.pending.has(call.id)) return;
-      const label = state.pending.get(call.id)!;
+      if (!pending.has(call.id)) return;
+      const label = pending.get(call.id)!;
       if (call.status === 'completed' || call.status === 'errored') {
-        state.pending.delete(call.id);
-        const icon =
-          call.status === 'completed' ? `${GREEN}✓${RESET}` : `${RED}✗${RESET}`;
+        pending.delete(call.id);
+        const icon = call.status === 'completed' ? green('✓') : red('✗');
         process.stderr.write(`  ${icon} ${label}\n`);
       }
     },
 
     addCredits(n: number) {
-      state.credits += n;
+      credits += n;
+    },
+
+    printStatus() {
+      process.stderr.write(`\n${statusLine()}\n\n`);
     },
 
     pause() {
-      // Stop ticker and clear status bar for user input
-      if (state.interval) {
-        clearInterval(state.interval);
-        state.interval = null;
-      }
-      clearStatusBar(state);
-      // Reset scroll region to full terminal
-      const r = process.stdout.rows || 24;
-      process.stderr.write(`\x1b[1;${r}r`);
+      // Print status before handing to user input
+      process.stderr.write(`\n${statusLine()}\n`);
     },
 
     resume() {
-      // Re-reserve bottom line and restart ticker
-      const r = process.stdout.rows || 24;
-      process.stderr.write(`\x1b[1;${r - 1}r`);
-      state.interval = setInterval(() => {
-        state.spinnerFrame = (state.spinnerFrame + 1) % SPINNER.length;
-        writeStatusBar(state);
-      }, 80);
-      writeStatusBar(state);
+      // Nothing to do — we print inline
     },
 
     cleanup() {
-      if (state.interval) {
-        clearInterval(state.interval);
-        state.interval = null;
-      }
-      clearStatusBar(state);
-      // Reset scroll region
-      const r = process.stdout.rows || 24;
-      process.stderr.write(`\x1b[1;${r}r`);
+      // Final status
+      process.stderr.write(`\n${statusLine()}\n`);
     },
   };
 }
