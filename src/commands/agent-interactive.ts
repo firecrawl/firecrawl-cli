@@ -202,67 +202,103 @@ function describeToolCall(
   return null;
 }
 
-// Track active tool calls for spinner display
-const activeToolCalls = new Map<string, string>();
+// ─── Multi-line spinner for parallel operations ─────────────────────────────
+
 const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-let spinnerFrame = 0;
-let spinnerInterval: ReturnType<typeof setInterval> | null = null;
 
-function startSpinner(): void {
-  if (spinnerInterval) return;
-  spinnerInterval = setInterval(() => {
-    if (activeToolCalls.size === 0) return;
-    spinnerFrame = (spinnerFrame + 1) % SPINNER.length;
-    const labels = [...activeToolCalls.values()];
-    const display =
-      labels.length === 1
-        ? labels[0]
-        : `${labels[0]} (+${labels.length - 1} more)`;
-    process.stderr.write(
-      `\r  ${SPINNER[spinnerFrame]} ${display}${''.padEnd(20)}`
-    );
-  }, 80);
+interface ToolCallState {
+  activeToolCalls: Map<string, string>;
+  spinnerFrame: number;
+  spinnerInterval: ReturnType<typeof setInterval> | null;
+  renderedLineCount: number;
 }
 
-function stopSpinner(): void {
-  if (spinnerInterval) {
-    clearInterval(spinnerInterval);
-    spinnerInterval = null;
+function createToolCallState(): ToolCallState {
+  return {
+    activeToolCalls: new Map(),
+    spinnerFrame: 0,
+    spinnerInterval: null,
+    renderedLineCount: 0,
+  };
+}
+
+function clearRenderedLines(state: ToolCallState): void {
+  for (let i = 0; i < state.renderedLineCount; i++) {
+    process.stderr.write('\x1b[A\x1b[2K'); // move up + clear line
   }
+  state.renderedLineCount = 0;
 }
 
-function clearSpinnerLine(): void {
-  process.stderr.write(`\r${''.padEnd(100)}\r`);
+function renderSpinnerFrame(state: ToolCallState): void {
+  if (state.activeToolCalls.size === 0) return;
+  state.spinnerFrame = (state.spinnerFrame + 1) % SPINNER.length;
+
+  // Clear previously rendered lines
+  clearRenderedLines(state);
+
+  // Render each active call on its own line
+  const lines = [...state.activeToolCalls.values()];
+  for (const label of lines) {
+    process.stderr.write(`  ${SPINNER[state.spinnerFrame]} ${label}\n`);
+  }
+  state.renderedLineCount = lines.length;
+}
+
+function startSpinner(state: ToolCallState): void {
+  if (state.spinnerInterval) return;
+  state.spinnerInterval = setInterval(() => renderSpinnerFrame(state), 80);
+}
+
+function stopSpinner(state: ToolCallState): void {
+  if (state.spinnerInterval) {
+    clearInterval(state.spinnerInterval);
+    state.spinnerInterval = null;
+  }
+  clearRenderedLines(state);
 }
 
 function buildCallbacks(sessionDir: string): {
   onText: (text: string) => void;
   onToolCall: (call: ToolCallInfo) => void;
   onToolCallUpdate: (call: ToolCallInfo) => void;
+  cleanup: () => void;
 } {
+  const state = createToolCallState();
+
   return {
     onText: (text: string) => {
-      // Clear spinner line before printing text
-      if (activeToolCalls.size > 0) clearSpinnerLine();
-      process.stdout.write(text);
+      // Clear spinner, print text, re-render spinner
+      if (state.activeToolCalls.size > 0) {
+        clearRenderedLines(state);
+        process.stdout.write(text);
+        renderSpinnerFrame(state);
+      } else {
+        process.stdout.write(text);
+      }
     },
     onToolCall: (call: ToolCallInfo) => {
       const label = describeToolCall(call, sessionDir);
       if (!label) return;
-      activeToolCalls.set(call.id, label);
-      startSpinner();
+      state.activeToolCalls.set(call.id, label);
+      startSpinner(state);
     },
     onToolCallUpdate: (call: ToolCallInfo) => {
-      if (!activeToolCalls.has(call.id)) return;
-      const label = activeToolCalls.get(call.id)!;
+      if (!state.activeToolCalls.has(call.id)) return;
+      const label = state.activeToolCalls.get(call.id)!;
       if (call.status === 'completed' || call.status === 'errored') {
-        activeToolCalls.delete(call.id);
-        clearSpinnerLine();
+        state.activeToolCalls.delete(call.id);
+
+        // Clear all spinner lines, print completed line, re-render remaining
+        clearRenderedLines(state);
         const icon = call.status === 'completed' ? '✓' : '✗';
         process.stderr.write(`  ${icon} ${label}\n`);
-        if (activeToolCalls.size === 0) stopSpinner();
+
+        if (state.activeToolCalls.size === 0) {
+          stopSpinner(state);
+        }
       }
     },
+    cleanup: () => stopSpinner(state),
   };
 }
 
@@ -433,10 +469,10 @@ export async function runInteractiveAgent(options: {
 
   // Handle Ctrl+C gracefully
   let agent: Awaited<ReturnType<typeof connectToAgent>> | null = null;
+  const callbacks = buildCallbacks(getSessionDir(session.id));
 
   const handleInterrupt = () => {
-    stopSpinner();
-    clearSpinnerLine();
+    callbacks.cleanup();
     process.stderr.write('\nInterrupted.\n');
     if (agent) {
       agent.cancel().catch(() => {});
@@ -450,7 +486,7 @@ export async function runInteractiveAgent(options: {
     agent = await connectToAgent({
       bin: selectedAgent.bin,
       systemPrompt,
-      callbacks: buildCallbacks(getSessionDir(session.id)),
+      callbacks,
     });
 
     // ── Conversation loop ─────────────────────────────────────────────────
@@ -490,7 +526,7 @@ export async function runInteractiveAgent(options: {
     console.error('\nError:', error instanceof Error ? error.message : error);
     process.exit(1);
   } finally {
-    stopSpinner();
+    callbacks.cleanup();
     process.removeListener('SIGINT', handleInterrupt);
     if (agent) agent.close();
   }
