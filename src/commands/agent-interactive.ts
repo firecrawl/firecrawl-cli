@@ -438,17 +438,29 @@ export async function runInteractiveAgent(options: {
 
     const userMessage = `Continue from previous session. Original request: "${session.prompt}". Schema fields: ${session.schema.join(', ')}. Output already at: ${session.outputPath}. New instruction: ${refinement}`;
 
+    // Look up the ACP binary for this provider
+    const agents = detectAgents();
+    const resumeAgent = agents.find(
+      (a) => a.name === session.provider && a.available
+    );
+    if (!resumeAgent) {
+      console.error(
+        `Agent "${session.provider}" is not available. Install it first.`
+      );
+      process.exit(1);
+    }
+
     console.log(`\n🔥 ${bold('Firecrawl Agent')} — Resuming session\n`);
 
     const resumeTui = startTUI({
       sessionId: session.id,
-      agentName: session.provider,
+      agentName: resumeAgent.displayName,
       format: session.format,
       sessionDir: getSessionDir(session.id),
     });
 
     const agent = await connectToAgent({
-      bin: session.provider,
+      bin: resumeAgent.bin,
       systemPrompt,
       callbacks: {
         onText: (text) => resumeTui.onText(text),
