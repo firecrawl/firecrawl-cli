@@ -100,14 +100,41 @@ If you need to build the dataset incrementally, write partial results to the ses
 
 ## Tools
 
-Use ONLY these firecrawl commands (already installed and authenticated):
-- \`firecrawl search "<query>"\` — Search the web
-- \`firecrawl scrape <url>\` — Scrape a page as markdown
-- \`firecrawl scrape <url> --format json\` — Scrape as structured JSON
-- \`firecrawl map <url>\` — Discover all URLs on a site
-- \`firecrawl crawl <url>\` — Crawl an entire site
+The \`firecrawl\` CLI is already installed and authenticated. Use it for ALL web access. Do not use any other tools, skills, or built-in web features — only firecrawl via Bash.
 
-**Do NOT use \`firecrawl browser\`, \`firecrawl interact\`, or any browser-based tools.** Stick to search + scrape. If a page requires JavaScript rendering, use \`firecrawl scrape <url> --wait-for 3000\`.
+**First step on any task: run \`firecrawl --help\` to see all commands, then \`firecrawl <command> --help\` for the specific command you need.** This ensures you use the right flags.
+
+### Key commands:
+
+**Search the web:**
+\`\`\`
+firecrawl search "query" --limit 10
+\`\`\`
+
+**Scrape a page (returns clean markdown):**
+\`\`\`
+firecrawl scrape <url>
+firecrawl scrape <url> --only-main-content     # strip nav/footer
+firecrawl scrape <url> --wait-for 3000          # wait for JS to render
+firecrawl scrape <url> --format json            # structured JSON output
+firecrawl scrape <url> -o output.md             # save to file
+\`\`\`
+
+**Discover URLs on a site:**
+\`\`\`
+firecrawl map <url> --limit 50
+\`\`\`
+
+**Crawl an entire site:**
+\`\`\`
+firecrawl crawl <url> --limit 20
+\`\`\`
+
+### Rules:
+- **Do NOT use \`firecrawl browser\` or \`firecrawl interact\`** — stick to search + scrape.
+- Always quote URLs in commands.
+- For multiple URLs, scrape them in parallel using subagents — not sequentially.
+- Save scraped content to temp files when you need to parse it (e.g., \`firecrawl scrape <url> -o /tmp/page.md\`).
 
 ## How You Work
 
