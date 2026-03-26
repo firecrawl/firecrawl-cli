@@ -267,29 +267,18 @@ async function showSessionEnd(
 
   console.log(`\nSession ${sessionId} saved.`);
 
-  // Check what files exist in the session dir
-  const files: string[] = [];
-  if (fs.existsSync(sessionDir)) {
-    for (const f of fs.readdirSync(sessionDir)) {
-      if (f !== 'session.json') {
-        files.push(f);
-      }
-    }
-  }
-
-  if (files.length === 0) {
-    console.log(`Output  ${outputPath}`);
-    return;
-  }
-
-  // Build choices
+  // Build choices — only show output file + session folder, not internals
   const choices: Array<{ name: string; value: string }> = [];
-  for (const f of files) {
-    const fullPath = `${sessionDir}/${f}`;
-    const stat = fs.statSync(fullPath);
+
+  if (fs.existsSync(outputPath)) {
+    const stat = fs.statSync(outputPath);
     const size =
       stat.size > 1024 ? `${Math.round(stat.size / 1024)}KB` : `${stat.size}B`;
-    choices.push({ name: `Open ${f} (${size})`, value: `file:${fullPath}` });
+    const basename = outputPath.split('/').pop() || 'output';
+    choices.push({
+      name: `Open ${basename} (${size})`,
+      value: `file:${outputPath}`,
+    });
   }
   choices.push({ name: 'Open session folder', value: `folder:${sessionDir}` });
   choices.push({ name: 'Done', value: 'done' });
