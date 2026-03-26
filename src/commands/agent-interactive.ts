@@ -133,68 +133,137 @@ ${outputInstructions[opts.format] || outputInstructions.json}
 Start by analyzing the request and proposing a schema.`;
 }
 
-// ─── Tool call formatting ───────────────────────────────────────────────────
+// ─── Tool call display ──────────────────────────────────────────────────────
 
-function extractFirecrawlArg(cmd: string, prefix: string): string {
-  return cmd
-    .replace(new RegExp(`^${prefix}\\s*`), '')
-    .split(/\s/)[0]
-    .replace(/^["']|["']$/g, '');
-}
-
-function formatToolCall(call: ToolCallInfo): string {
+/**
+ * Parse a tool call and return a user-facing label, or null to hide it.
+ * Only firecrawl operations and session output writes are shown.
+ */
+function describeToolCall(
+  call: ToolCallInfo,
+  sessionDir: string
+): string | null {
   const input = call.rawInput as Record<string, unknown> | undefined;
 
-  // Extract the command from rawInput if available
   if (input?.command && typeof input.command === 'string') {
     const cmd = input.command.trim();
 
-    // Firecrawl commands
     if (cmd.startsWith('firecrawl search')) {
-      const query = extractFirecrawlArg(cmd, 'firecrawl search');
-      return `Search  "${query}"`;
+      const query = cmd
+        .replace(/^firecrawl search\s*/, '')
+        .replace(/^["']|["']$/g, '')
+        .split(/\s+--/)[0];
+      return `Searching "${query}"`;
     }
     if (cmd.startsWith('firecrawl scrape')) {
-      const url = extractFirecrawlArg(cmd, 'firecrawl scrape');
-      return `Scrape  ${url}`;
+      const url = cmd
+        .replace(/^firecrawl scrape\s*/, '')
+        .split(/\s/)[0]
+        .replace(/^["']|["']$/g, '');
+      if (url.startsWith('http')) return `Scraping ${url}`;
+      return null; // --help or flags only
     }
     if (cmd.startsWith('firecrawl map')) {
-      const url = extractFirecrawlArg(cmd, 'firecrawl map');
-      return `Map     ${url}`;
+      const url = cmd
+        .replace(/^firecrawl map\s*/, '')
+        .split(/\s/)[0]
+        .replace(/^["']|["']$/g, '');
+      if (url.startsWith('http')) return `Mapping ${url}`;
+      return null;
     }
     if (cmd.startsWith('firecrawl crawl')) {
-      const url = extractFirecrawlArg(cmd, 'firecrawl crawl');
-      return `Crawl   ${url}`;
+      const url = cmd
+        .replace(/^firecrawl crawl\s*/, '')
+        .split(/\s/)[0]
+        .replace(/^["']|["']$/g, '');
+      if (url.startsWith('http')) return `Crawling ${url}`;
+      return null;
     }
-    if (cmd.startsWith('firecrawl')) {
-      return `Run     ${cmd}`;
-    }
-
-    // Write commands
-    if (cmd.startsWith('cat') && cmd.includes('>')) {
-      const outFile = cmd.split('>').pop()?.trim() || '';
-      return `Write   ${outFile}`;
+    if (cmd.startsWith('firecrawl agent')) {
+      return 'Running Firecrawl extraction agent';
     }
 
-    // Generic command
-    const short = cmd.length > 80 ? cmd.slice(0, 77) + '...' : cmd;
-    return `Run     ${short}`;
+    // Hide everything else (grep, python, cat, temp files, help, etc.)
+    return null;
   }
 
-  // File operations
+  // File writes to the session directory are shown
   if (input?.path && typeof input.path === 'string') {
-    const basename = input.path.split('/').pop() || input.path;
-    if (call.title.toLowerCase().includes('write')) {
-      return `Write   ${basename}`;
+    if (
+      input.path.startsWith(sessionDir) &&
+      call.title.toLowerCase().includes('write')
+    ) {
+      const basename = input.path.split('/').pop() || input.path;
+      return `Writing ${basename}`;
     }
-    if (call.title.toLowerCase().includes('read')) {
-      return `Read    ${basename}`;
-    }
-    return `${call.title}  ${basename}`;
+    return null;
   }
 
-  // Fallback
-  return call.title;
+  return null;
+}
+
+// Track active tool calls for spinner display
+const activeToolCalls = new Map<string, string>();
+const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+let spinnerFrame = 0;
+let spinnerInterval: ReturnType<typeof setInterval> | null = null;
+
+function startSpinner(): void {
+  if (spinnerInterval) return;
+  spinnerInterval = setInterval(() => {
+    if (activeToolCalls.size === 0) return;
+    spinnerFrame = (spinnerFrame + 1) % SPINNER.length;
+    const labels = [...activeToolCalls.values()];
+    const display =
+      labels.length === 1
+        ? labels[0]
+        : `${labels[0]} (+${labels.length - 1} more)`;
+    process.stderr.write(
+      `\r  ${SPINNER[spinnerFrame]} ${display}${''.padEnd(20)}`
+    );
+  }, 80);
+}
+
+function stopSpinner(): void {
+  if (spinnerInterval) {
+    clearInterval(spinnerInterval);
+    spinnerInterval = null;
+  }
+}
+
+function clearSpinnerLine(): void {
+  process.stderr.write(`\r${''.padEnd(100)}\r`);
+}
+
+function buildCallbacks(sessionDir: string): {
+  onText: (text: string) => void;
+  onToolCall: (call: ToolCallInfo) => void;
+  onToolCallUpdate: (call: ToolCallInfo) => void;
+} {
+  return {
+    onText: (text: string) => {
+      // Clear spinner line before printing text
+      if (activeToolCalls.size > 0) clearSpinnerLine();
+      process.stdout.write(text);
+    },
+    onToolCall: (call: ToolCallInfo) => {
+      const label = describeToolCall(call, sessionDir);
+      if (!label) return;
+      activeToolCalls.set(call.id, label);
+      startSpinner();
+    },
+    onToolCallUpdate: (call: ToolCallInfo) => {
+      if (!activeToolCalls.has(call.id)) return;
+      const label = activeToolCalls.get(call.id)!;
+      if (call.status === 'completed' || call.status === 'errored') {
+        activeToolCalls.delete(call.id);
+        clearSpinnerLine();
+        const icon = call.status === 'completed' ? '✓' : '✗';
+        process.stderr.write(`  ${icon} ${label}\n`);
+        if (activeToolCalls.size === 0) stopSpinner();
+      }
+    },
+  };
 }
 
 // ─── Interactive flow ───────────────────────────────────────────────────────
@@ -236,25 +305,12 @@ export async function runInteractiveAgent(options: {
 
     const userMessage = `Continue from previous session. Original request: "${session.prompt}". Schema fields: ${session.schema.join(', ')}. Output already at: ${session.outputPath}. New instruction: ${refinement}`;
 
-    console.log(`\n🔥 Resuming session via Agent Client Protocol...\n`);
+    console.log(`\nResuming session via Agent Client Protocol...\n`);
 
     const agent = await connectToAgent({
       bin: session.provider,
       systemPrompt,
-      callbacks: {
-        onText: (text) => process.stdout.write(text),
-        onToolCall: (call: ToolCallInfo) => {
-          const detail = formatToolCall(call);
-          if (detail) {
-            process.stderr.write(`  🔥 ${detail}\n`);
-          }
-        },
-        onToolCallUpdate: (call: ToolCallInfo) => {
-          if (call.status === 'completed') {
-            process.stderr.write(`     Done\n`);
-          }
-        },
-      },
+      callbacks: buildCallbacks(getSessionDir(session.id)),
     });
 
     try {
@@ -357,8 +413,8 @@ export async function runInteractiveAgent(options: {
     format,
   });
 
-  console.log(`\n🔥 Session: ${session.id}`);
-  console.log(`📁 Output: ${session.outputPath}`);
+  console.log(`\nSession ${session.id}`);
+  console.log(`Output  ${session.outputPath}`);
 
   // ── Build message ─────────────────────────────────────────────────────
   const systemPrompt = buildSystemPrompt({
@@ -379,7 +435,9 @@ export async function runInteractiveAgent(options: {
   let agent: Awaited<ReturnType<typeof connectToAgent>> | null = null;
 
   const handleInterrupt = () => {
-    process.stderr.write('\n\nInterrupted.\n');
+    stopSpinner();
+    clearSpinnerLine();
+    process.stderr.write('\nInterrupted.\n');
     if (agent) {
       agent.cancel().catch(() => {});
       agent.close();
@@ -392,22 +450,7 @@ export async function runInteractiveAgent(options: {
     agent = await connectToAgent({
       bin: selectedAgent.bin,
       systemPrompt,
-      callbacks: {
-        onText: (text) => process.stdout.write(text),
-        onToolCall: (call: ToolCallInfo) => {
-          const detail = formatToolCall(call);
-          if (detail) {
-            process.stderr.write(`  🔥 ${detail}\n`);
-          }
-        },
-        onToolCallUpdate: (call: ToolCallInfo) => {
-          if (call.status === 'completed') {
-            process.stderr.write(`     Done\n`);
-          } else if (call.status === 'errored') {
-            process.stderr.write(`     Failed\n`);
-          }
-        },
-      },
+      callbacks: buildCallbacks(getSessionDir(session.id)),
     });
 
     // ── Conversation loop ─────────────────────────────────────────────────
@@ -418,7 +461,7 @@ export async function runInteractiveAgent(options: {
 
       // If the agent stopped for a reason other than end_turn, break
       if (result.stopReason !== 'end_turn') {
-        process.stderr.write(`\n🔥 Stopped (${result.stopReason}).\n`);
+        process.stderr.write(`\nStopped (${result.stopReason}).\n`);
         break;
       }
 
@@ -436,8 +479,8 @@ export async function runInteractiveAgent(options: {
         trimmed === 'exit' ||
         trimmed === 'quit'
       ) {
-        process.stderr.write(`\n🔥 Session ${session.id} saved.\n`);
-        process.stderr.write(`📁 Output: ${session.outputPath}\n`);
+        process.stderr.write(`\nSession ${session.id} saved.\n`);
+        process.stderr.write(`Output  ${session.outputPath}\n`);
         break;
       }
 
@@ -447,6 +490,7 @@ export async function runInteractiveAgent(options: {
     console.error('\nError:', error instanceof Error ? error.message : error);
     process.exit(1);
   } finally {
+    stopSpinner();
     process.removeListener('SIGINT', handleInterrupt);
     if (agent) agent.close();
   }
