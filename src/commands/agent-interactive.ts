@@ -549,16 +549,12 @@ export async function runInteractiveAgent(options: {
         break;
       }
 
-      // Show output path reminder
-      process.stderr.write(dim(`Output: ${session.outputPath}\n`));
-
-      // Ask user for follow-up
+      // Ask user for follow-up (default action)
       const followUp = await input({
         message: '→',
         default: '',
       });
 
-      // Empty input or "done"/"exit"/"quit" ends the loop
       const trimmed = followUp.trim().toLowerCase();
       if (
         !trimmed ||
