@@ -235,7 +235,6 @@ export function startTUI(opts: {
   sessionDir: string;
 }): TUIHandle {
   const calls = new Map<string, CallInfo>();
-  const started = new Set<string>();
   const completed = new Set<string>();
   let currentPhase: Phase | null = null;
 
@@ -327,15 +326,7 @@ export function startTUI(opts: {
         return;
       }
       calls.set(call.id, info);
-
-      // Show firecrawl operations when they start (deduplicated)
-      if (!completed.has(info.dedupeKey) && !started.has(info.dedupeKey)) {
-        started.add(info.dedupeKey);
-        clearWorking();
-        ensureNewline();
-        ensurePhase(info.phase);
-        process.stderr.write(`  ${dim('·')} ${info.label}...\n`);
-      }
+      showWorking(); // spinner while it runs
     },
 
     onToolCallUpdate(call: ToolCallInfo) {
@@ -392,7 +383,6 @@ export function startTUI(opts: {
 
     resume() {
       clearWorking();
-      started.clear();
       completed.clear();
       currentPhase = null;
     },
