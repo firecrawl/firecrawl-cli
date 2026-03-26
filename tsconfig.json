@@ -14,8 +14,7 @@
     "sourceMap": true,
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
-    "types": ["node"],
-    "jsx": "react-jsx"
+    "types": ["node"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

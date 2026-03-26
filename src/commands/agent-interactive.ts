@@ -9,7 +9,7 @@
 
 import { type ACPAgent, detectAgents } from '../acp/registry';
 import { connectToAgent, type ToolCallInfo } from '../acp/client';
-import { startTUI, type TUIHandle } from '../acp/tui';
+import { startTUI } from '../acp/tui';
 import {
   createSession,
   getSessionDir,
@@ -435,7 +435,7 @@ export async function runInteractiveAgent(options: {
   const tui = startTUI({
     sessionId: session.id,
     agentName: selectedAgent.displayName,
-    outputFormat: format,
+    format,
     sessionDir,
   });
 
@@ -443,7 +443,7 @@ export async function runInteractiveAgent(options: {
   let agent: Awaited<ReturnType<typeof connectToAgent>> | null = null;
 
   const handleInterrupt = () => {
-    tui.unmount();
+    tui.cleanup();
     process.stderr.write('\nInterrupted.\n');
     if (agent) {
       agent.cancel().catch(() => {});
@@ -458,7 +458,7 @@ export async function runInteractiveAgent(options: {
       bin: selectedAgent.bin,
       systemPrompt,
       callbacks: {
-        onText: (text) => tui.writeText(text),
+        onText: (text) => tui.onText(text),
         onToolCall: (call) => tui.onToolCall(call),
         onToolCallUpdate: (call) => tui.onToolCallUpdate(call),
       },
@@ -470,7 +470,7 @@ export async function runInteractiveAgent(options: {
       const result = await agent.prompt(currentMessage);
 
       // Unmount TUI for user input
-      tui.unmount();
+      tui.pause();
       process.stdout.write('\n');
 
       // If the agent stopped for a reason other than end_turn, break
@@ -499,14 +499,15 @@ export async function runInteractiveAgent(options: {
       }
 
       // Remount TUI for next turn
-      tui.remount();
+      tui.resume();
       currentMessage = followUp;
     }
   } catch (error) {
-    tui.unmount();
+    tui.cleanup();
     console.error('\nError:', error instanceof Error ? error.message : error);
     process.exit(1);
   } finally {
+    tui.cleanup();
     process.removeListener('SIGINT', handleInterrupt);
     if (agent) agent.close();
   }
