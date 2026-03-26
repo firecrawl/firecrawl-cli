@@ -43,7 +43,9 @@ interface CallInfo {
 
 function categorize(call: ToolCallInfo, sessionDir: string): CallInfo | null {
   const input = call.rawInput as Record<string, unknown> | undefined;
+  const title = (call.title || '').toLowerCase();
 
+  // ── Match by Bash command (Terminal tool calls) ─────────────────────
   if (input?.command && typeof input.command === 'string') {
     const cmd = input.command.trim();
 
@@ -51,7 +53,7 @@ function categorize(call: ToolCallInfo, sessionDir: string): CallInfo | null {
       const m = cmd.match(/firecrawl search\s+["']([^"']+)["']/);
       const q = m ? m[1] : 'web';
       return {
-        label: `Searched "${q}"`,
+        label: `Searching "${q}"`,
         phase: 'discovering',
         dedupeKey: `search:${q}`,
       };
@@ -60,7 +62,7 @@ function categorize(call: ToolCallInfo, sessionDir: string): CallInfo | null {
       const url = extractUrl(cmd, 'firecrawl scrape');
       if (!url) return null;
       return {
-        label: `Scraped ${url}`,
+        label: `Scraping ${url}`,
         phase: 'extracting',
         dedupeKey: `scrape:${url}`,
       };
@@ -69,7 +71,7 @@ function categorize(call: ToolCallInfo, sessionDir: string): CallInfo | null {
       const url = extractUrl(cmd, 'firecrawl map');
       if (!url) return null;
       return {
-        label: `Mapped ${url}`,
+        label: `Mapping ${url}`,
         phase: 'extracting',
         dedupeKey: `map:${url}`,
       };
@@ -78,21 +80,21 @@ function categorize(call: ToolCallInfo, sessionDir: string): CallInfo | null {
       const url = extractUrl(cmd, 'firecrawl crawl');
       if (!url) return null;
       return {
-        label: `Crawled ${url}`,
+        label: `Crawling ${url}`,
         phase: 'extracting',
         dedupeKey: `crawl:${url}`,
       };
     }
     if (cmd.startsWith('firecrawl agent')) {
       return {
-        label: 'Ran extraction agent',
+        label: 'Running extraction agent',
         phase: 'extracting',
         dedupeKey: 'extract-agent',
       };
     }
     if (cmd.includes(sessionDir)) {
       return {
-        label: 'Wrote output',
+        label: 'Writing output',
         phase: 'output',
         dedupeKey: 'write-session',
       };
@@ -100,14 +102,88 @@ function categorize(call: ToolCallInfo, sessionDir: string): CallInfo | null {
     return null;
   }
 
+  // ── Match by title (MCP tools, built-in tools, etc.) ───────────────
+  // MCP tools have titles like "firecrawl_scrape", "firecrawl_search"
+  // or the tool name itself contains "firecrawl"
+  if (
+    title.includes('firecrawl_scrape') ||
+    title.includes('firecrawl__firecrawl_scrape')
+  ) {
+    const url = (input?.url as string) || '';
+    return {
+      label: `Scraping ${url || 'page'}`,
+      phase: 'extracting',
+      dedupeKey: `scrape:${url}`,
+    };
+  }
+  if (
+    title.includes('firecrawl_search') ||
+    title.includes('firecrawl__firecrawl_search')
+  ) {
+    const query = (input?.query as string) || '';
+    return {
+      label: `Searching "${query || 'web'}"`,
+      phase: 'discovering',
+      dedupeKey: `search:${query}`,
+    };
+  }
+  if (
+    title.includes('firecrawl_map') ||
+    title.includes('firecrawl__firecrawl_map')
+  ) {
+    const url = (input?.url as string) || '';
+    return {
+      label: `Mapping ${url || 'site'}`,
+      phase: 'extracting',
+      dedupeKey: `map:${url}`,
+    };
+  }
+  if (
+    title.includes('firecrawl_crawl') ||
+    title.includes('firecrawl__firecrawl_crawl')
+  ) {
+    const url = (input?.url as string) || '';
+    return {
+      label: `Crawling ${url || 'site'}`,
+      phase: 'extracting',
+      dedupeKey: `crawl:${url}`,
+    };
+  }
+  if (
+    title.includes('firecrawl_extract') ||
+    title.includes('firecrawl__firecrawl_extract')
+  ) {
+    return {
+      label: 'Extracting data',
+      phase: 'extracting',
+      dedupeKey: 'extract',
+    };
+  }
+
+  // WebSearch / WebFetch — built-in tools the agent might use despite instructions
+  if (title === 'websearch' || title === 'web_search') {
+    const query = (input?.query as string) || '';
+    return {
+      label: `Searching "${query || 'web'}"`,
+      phase: 'discovering',
+      dedupeKey: `websearch:${query}`,
+    };
+  }
+  if (title === 'webfetch' || title === 'web_fetch') {
+    const url = (input?.url as string) || '';
+    return {
+      label: `Fetching ${url || 'page'}`,
+      phase: 'extracting',
+      dedupeKey: `fetch:${url}`,
+    };
+  }
+
+  // ── File writes to session dir ─────────────────────────────────────
   if (input?.path && typeof input.path === 'string') {
-    if (
-      input.path.startsWith(sessionDir) &&
-      call.title.toLowerCase().includes('write')
-    ) {
+    if (input.path.startsWith(sessionDir) && title.includes('write')) {
       const basename = input.path.split('/').pop() || input.path;
       return {
-        label: `Wrote ${basename}`,
+        label: `Writing ${basename}`,
         phase: 'output',
         dedupeKey: `write:${basename}`,
       };
