@@ -8,7 +8,7 @@
  */
 
 import { type ACPAgent, detectAgents } from '../acp/registry';
-import { connectToAgent } from '../acp/client';
+import { connectToAgent, type ToolCallInfo } from '../acp/client';
 import {
   createSession,
   getSessionDir,
@@ -133,6 +133,74 @@ ${outputInstructions[opts.format] || outputInstructions.json}
 Start by analyzing the request and proposing a schema.`;
 }
 
+// ─── Tool call formatting ───────────────────────────────────────────────────
+
+function formatToolCall(call: ToolCallInfo): string {
+  const input = call.rawInput as Record<string, unknown> | undefined;
+
+  // Extract the command from rawInput if available
+  if (input?.command && typeof input.command === 'string') {
+    const cmd = input.command.trim();
+
+    // Firecrawl commands — show them prominently
+    if (cmd.startsWith('firecrawl search')) {
+      const query = cmd
+        .replace(/^firecrawl search\s*/, '')
+        .replace(/^["']|["']$/g, '');
+      return `searching "${query}"`;
+    }
+    if (cmd.startsWith('firecrawl scrape')) {
+      const url = cmd
+        .replace(/^firecrawl scrape\s*/, '')
+        .split(/\s/)[0]
+        .replace(/^["']|["']$/g, '');
+      return `scraping ${url}`;
+    }
+    if (cmd.startsWith('firecrawl map')) {
+      const url = cmd
+        .replace(/^firecrawl map\s*/, '')
+        .split(/\s/)[0]
+        .replace(/^["']|["']$/g, '');
+      return `mapping ${url}`;
+    }
+    if (cmd.startsWith('firecrawl crawl')) {
+      const url = cmd
+        .replace(/^firecrawl crawl\s*/, '')
+        .split(/\s/)[0]
+        .replace(/^["']|["']$/g, '');
+      return `crawling ${url}`;
+    }
+    if (cmd.startsWith('firecrawl')) {
+      return cmd;
+    }
+
+    // Write commands — show the output path
+    if (cmd.startsWith('cat') && cmd.includes('>')) {
+      const outFile = cmd.split('>').pop()?.trim() || '';
+      return `writing ${outFile}`;
+    }
+
+    // Generic command — show a truncated version
+    const short = cmd.length > 80 ? cmd.slice(0, 77) + '...' : cmd;
+    return short;
+  }
+
+  // File operations
+  if (input?.path && typeof input.path === 'string') {
+    const basename = input.path.split('/').pop() || input.path;
+    if (call.title.toLowerCase().includes('write')) {
+      return `writing ${basename}`;
+    }
+    if (call.title.toLowerCase().includes('read')) {
+      return `reading ${basename}`;
+    }
+    return `${call.title.toLowerCase()} ${basename}`;
+  }
+
+  // Fallback to title
+  return call.title.toLowerCase();
+}
+
 // ─── Interactive flow ───────────────────────────────────────────────────────
 
 export async function runInteractiveAgent(options: {
@@ -172,16 +240,22 @@ export async function runInteractiveAgent(options: {
 
     const userMessage = `Continue from previous session. Original request: "${session.prompt}". Schema fields: ${session.schema.join(', ')}. Output already at: ${session.outputPath}. New instruction: ${refinement}`;
 
-    console.log(`\nConnecting to ${session.provider} via ACP...\n`);
+    console.log(`\n🔥 Reconnecting to ${session.provider} via ACP...\n`);
 
     const agent = await connectToAgent({
       bin: session.provider,
       systemPrompt,
       callbacks: {
         onText: (text) => process.stdout.write(text),
-        onToolCall: (title, status) => {
-          if (status === 'pending') {
-            process.stderr.write(`\n⟡ ${title}...\n`);
+        onToolCall: (call: ToolCallInfo) => {
+          const detail = formatToolCall(call);
+          if (detail) {
+            process.stderr.write(`\n  🔥 ${detail}\n`);
+          }
+        },
+        onToolCallUpdate: (call: ToolCallInfo) => {
+          if (call.status === 'completed') {
+            process.stderr.write(`  ✅ done\n`);
           }
         },
       },
@@ -287,8 +361,8 @@ export async function runInteractiveAgent(options: {
     format,
   });
 
-  console.log(`\nSession: ${session.id}`);
-  console.log(`Output: ${session.outputPath}`);
+  console.log(`\n🔥 Session: ${session.id}`);
+  console.log(`📁 Output: ${session.outputPath}`);
 
   // ── Build message ─────────────────────────────────────────────────────
   const systemPrompt = buildSystemPrompt({
@@ -301,7 +375,7 @@ export async function runInteractiveAgent(options: {
   const userMessage = parts.join('. ') + '.';
 
   // ── Connect via ACP ───────────────────────────────────────────────────
-  console.log(`\nConnecting to ${selectedAgent.displayName} via ACP...\n`);
+  console.log(`\n🔥 Connecting to ${selectedAgent.displayName} via ACP...\n`);
 
   // Handle Ctrl+C gracefully
   let agent: Awaited<ReturnType<typeof connectToAgent>> | null = null;
@@ -322,14 +396,17 @@ export async function runInteractiveAgent(options: {
       systemPrompt,
       callbacks: {
         onText: (text) => process.stdout.write(text),
-        onToolCall: (title, status) => {
-          if (status === 'pending') {
-            process.stderr.write(`\n⟡ ${title}...\n`);
+        onToolCall: (call: ToolCallInfo) => {
+          const detail = formatToolCall(call);
+          if (detail) {
+            process.stderr.write(`\n  🔥 ${detail}\n`);
           }
         },
-        onToolCallUpdate: (id, status) => {
-          if (status === 'completed') {
-            process.stderr.write(`  ✓ done\n`);
+        onToolCallUpdate: (call: ToolCallInfo) => {
+          if (call.status === 'completed') {
+            process.stderr.write(`  ✅ done\n`);
+          } else if (call.status === 'errored') {
+            process.stderr.write(`  ❌ failed\n`);
           }
         },
       },
@@ -343,7 +420,7 @@ export async function runInteractiveAgent(options: {
 
       // If the agent stopped for a reason other than end_turn, break
       if (result.stopReason !== 'end_turn') {
-        process.stderr.write(`Stopped (${result.stopReason}).\n`);
+        process.stderr.write(`\n🔥 Stopped (${result.stopReason}).\n`);
         break;
       }
 
@@ -361,8 +438,8 @@ export async function runInteractiveAgent(options: {
         trimmed === 'exit' ||
         trimmed === 'quit'
       ) {
-        process.stderr.write(`\nSession ${session.id} saved.\n`);
-        process.stderr.write(`Output: ${session.outputPath}\n`);
+        process.stderr.write(`\n🔥 Session ${session.id} saved.\n`);
+        process.stderr.write(`📁 Output: ${session.outputPath}\n`);
         break;
       }
 

@@ -12,10 +12,18 @@ import * as acp from '@agentclientprotocol/sdk';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
+export interface ToolCallInfo {
+  id: string;
+  title: string;
+  status: string;
+  rawInput?: unknown;
+  rawOutput?: unknown;
+}
+
 export interface ACPClientCallbacks {
   onText?: (text: string) => void;
-  onToolCall?: (title: string, status: string) => void;
-  onToolCallUpdate?: (toolCallId: string, status: string) => void;
+  onToolCall?: (call: ToolCallInfo) => void;
+  onToolCallUpdate?: (call: ToolCallInfo) => void;
   onPlan?: (entries: Array<{ content: string; status: string }>) => void;
   onPermissionRequest?: (
     title: string,
@@ -76,19 +84,25 @@ class FirecrawlClient implements acp.Client {
 
       case 'tool_call':
         if (this.callbacks.onToolCall) {
-          this.callbacks.onToolCall(
-            update.title ?? 'tool',
-            update.status ?? 'pending'
-          );
+          this.callbacks.onToolCall({
+            id: update.toolCallId,
+            title: update.title ?? 'tool',
+            status: update.status ?? 'pending',
+            rawInput: update.rawInput,
+            rawOutput: update.rawOutput,
+          });
         }
         break;
 
       case 'tool_call_update':
         if (this.callbacks.onToolCallUpdate) {
-          this.callbacks.onToolCallUpdate(
-            update.toolCallId,
-            update.status ?? 'unknown'
-          );
+          this.callbacks.onToolCallUpdate({
+            id: update.toolCallId,
+            title: update.title ?? '',
+            status: update.status ?? 'unknown',
+            rawInput: update.rawInput,
+            rawOutput: update.rawOutput,
+          });
         }
         break;
 
