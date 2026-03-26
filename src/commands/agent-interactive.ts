@@ -452,7 +452,8 @@ export async function runInteractiveAgent(options: {
       process.exit(1);
     }
 
-    console.log(`\n🔥 ${bold('Firecrawl Agent')} — Resuming session\n`);
+    console.log(`\n🔥 ${bold('Firecrawl Agent')} — Resuming session`);
+    console.log(dim('   Press Ctrl+C to cancel\n'));
 
     const resumeTui = startTUI({
       sessionId: session.id,
@@ -538,12 +539,44 @@ export async function runInteractiveAgent(options: {
   const available = agents.filter((a) => a.available);
 
   if (available.length === 0) {
-    console.error(
-      '\nNo ACP-compatible agents found. Install one of:\n' +
-        '  npm install -g @zed-industries/claude-agent-acp  (Claude Code)\n' +
-        '  npm install -g @zed-industries/codex-acp         (Codex)\n' +
-        '  See https://agentclientprotocol.com/get-started/agents\n'
-    );
+    // Check if raw CLIs are installed (but ACP adapters aren't)
+    const { execSync } = await import('child_process');
+    const hasClaude = (() => {
+      try {
+        execSync('which claude', { stdio: 'ignore' });
+        return true;
+      } catch {
+        return false;
+      }
+    })();
+    const hasCodex = (() => {
+      try {
+        execSync('which codex', { stdio: 'ignore' });
+        return true;
+      } catch {
+        return false;
+      }
+    })();
+
+    if (hasClaude || hasCodex) {
+      console.error('\nNo ACP adapters found, but you have:');
+      if (hasClaude)
+        console.error(
+          '  ✓ Claude Code (claude) — install adapter: npm install -g @zed-industries/claude-agent-acp'
+        );
+      if (hasCodex)
+        console.error(
+          '  ✓ Codex (codex) — install adapter: npm install -g @zed-industries/codex-acp'
+        );
+      console.error('');
+    } else {
+      console.error(
+        '\nNo ACP-compatible agents found. Install one of:\n' +
+          '  npm install -g @zed-industries/claude-agent-acp  (Claude Code)\n' +
+          '  npm install -g @zed-industries/codex-acp         (Codex)\n' +
+          '  See https://agentclientprotocol.com/get-started/agents\n'
+      );
+    }
     process.exit(1);
   }
 
@@ -655,8 +688,9 @@ export async function runInteractiveAgent(options: {
   // ── Connect via ACP ───────────────────────────────────────────────────
   console.log(`\n🔥 ${bold('Firecrawl Agent')}`);
   console.log(
-    `   ${selectedAgent.displayName} · ${format.toUpperCase()} · Session ${session.id}\n`
+    `   ${selectedAgent.displayName} · ${format.toUpperCase()} · Session ${session.id}`
   );
+  console.log(dim('   Press Ctrl+C to cancel · type "done" to finish\n'));
 
   // Start TUI
   const sessionDir = getSessionDir(session.id);
