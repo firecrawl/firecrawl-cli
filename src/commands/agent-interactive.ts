@@ -364,43 +364,48 @@ export async function runInteractiveAgent(options: {
       process.exit(1);
     }
     selectedAgent = match;
-  } else if (available.length === 1) {
-    selectedAgent = available[0];
-    console.log(`\nUsing ${selectedAgent.displayName} (only agent detected)\n`);
   } else {
-    // Available agents first, then unavailable grouped at the bottom
-    const installedChoices = agents
-      .filter((a) => a.available)
-      .map((a) => ({
-        name: `${a.displayName}`,
-        value: a.name,
-        disabled: false as const,
-      }));
-    const notInstalled = agents.filter((a) => !a.available);
-    const agentChoices = [
-      ...installedChoices,
-      ...(notInstalled.length > 0
-        ? [
-            {
-              name: '─── Not installed ───',
-              value: '_sep',
-              disabled: 'separator' as const,
-            },
-            ...notInstalled.map((a) => ({
-              name: `${a.displayName}`,
-              value: a.name,
-              disabled: 'not installed' as const,
-            })),
-          ]
-        : []),
-    ];
+    // Default to Claude Code if available
+    const claude = available.find((a) => a.name === 'claude');
+    if (claude) {
+      selectedAgent = claude;
+    } else if (available.length === 1) {
+      selectedAgent = available[0];
+    } else {
+      // Available agents first, then unavailable grouped at the bottom
+      const installedChoices = agents
+        .filter((a) => a.available)
+        .map((a) => ({
+          name: `${a.displayName}`,
+          value: a.name,
+          disabled: false as const,
+        }));
+      const notInstalled = agents.filter((a) => !a.available);
+      const agentChoices = [
+        ...installedChoices,
+        ...(notInstalled.length > 0
+          ? [
+              {
+                name: '─── Not installed ───',
+                value: '_sep',
+                disabled: 'separator' as const,
+              },
+              ...notInstalled.map((a) => ({
+                name: `${a.displayName}`,
+                value: a.name,
+                disabled: 'not installed' as const,
+              })),
+            ]
+          : []),
+      ];
 
-    const chosen = await select({
-      message: 'Which ACP agent?',
-      choices: agentChoices,
-    });
+      const chosen = await select({
+        message: 'Which ACP agent?',
+        choices: agentChoices,
+      });
 
-    selectedAgent = agents.find((a) => a.name === chosen)!;
+      selectedAgent = agents.find((a) => a.name === chosen)!;
+    }
   }
 
   // ── Gather prompt ───────────────────────────────────────────────────────
