@@ -1,23 +1,14 @@
 /**
- * ACP (Agent Client Protocol) provider detection and session management.
+ * Session management for Firecrawl Agent.
  *
- * Detects locally-installed agent providers (Claude Code, Codex, OpenCode)
- * and manages persistent sessions in ~/.firecrawl/sessions/.
+ * Manages persistent sessions in ~/.firecrawl/sessions/.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { execSync } from 'child_process';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
-
-export interface ACPProvider {
-  name: string;
-  bin: string;
-  displayName: string;
-  available: boolean;
-}
 
 export interface Session {
   id: string;
@@ -29,32 +20,6 @@ export interface Session {
   createdAt: string;
   updatedAt: string;
   iterations: number;
-}
-
-// ─── Provider registry ──────────────────────────────────────────────────────
-
-const PROVIDERS: Omit<ACPProvider, 'available'>[] = [
-  { name: 'claude', bin: 'claude', displayName: 'Claude Code' },
-  { name: 'codex', bin: 'codex', displayName: 'Codex' },
-  { name: 'opencode', bin: 'opencode', displayName: 'OpenCode' },
-];
-
-// ─── Provider detection ─────────────────────────────────────────────────────
-
-function isBinAvailable(bin: string): boolean {
-  try {
-    execSync(`which ${bin}`, { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export function detectProviders(): ACPProvider[] {
-  return PROVIDERS.map((p) => ({
-    ...p,
-    available: isBinAvailable(p.bin),
-  }));
 }
 
 // ─── Sessions directory ─────────────────────────────────────────────────────
