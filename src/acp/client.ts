@@ -160,11 +160,14 @@ export async function connectToAgent(opts: {
   cancel: () => Promise<void>;
   close: () => void;
 }> {
-  // Spawn agent subprocess
+  // Spawn agent subprocess — pipe stderr to suppress agent noise
   const agentProcess = spawn(opts.bin, opts.args ?? [], {
-    stdio: ['pipe', 'pipe', 'inherit'],
+    stdio: ['pipe', 'pipe', 'pipe'],
     cwd: opts.cwd ?? process.cwd(),
   });
+
+  // Silently discard agent's stderr (hook warnings, debug output, etc.)
+  agentProcess.stderr?.resume();
 
   // Handle spawn errors
   const spawnError = new Promise<never>((_, reject) => {

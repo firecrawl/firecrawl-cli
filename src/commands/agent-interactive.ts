@@ -9,6 +9,7 @@
 
 import { type ACPAgent, detectAgents } from '../acp/registry';
 import { connectToAgent, type ToolCallInfo } from '../acp/client';
+import { startTUI, type TUIHandle } from '../acp/tui';
 import {
   createSession,
   getSessionDir,
@@ -429,12 +430,20 @@ export async function runInteractiveAgent(options: {
     `\n🔥 Loading ${selectedAgent.displayName} via Agent Client Protocol...\n`
   );
 
+  // Start TUI
+  const sessionDir = getSessionDir(session.id);
+  const tui = startTUI({
+    sessionId: session.id,
+    agentName: selectedAgent.displayName,
+    outputFormat: format,
+    sessionDir,
+  });
+
   // Handle Ctrl+C gracefully
   let agent: Awaited<ReturnType<typeof connectToAgent>> | null = null;
-  const callbacks = buildCallbacks(getSessionDir(session.id));
 
   const handleInterrupt = () => {
-    callbacks.cleanup();
+    tui.unmount();
     process.stderr.write('\nInterrupted.\n');
     if (agent) {
       agent.cancel().catch(() => {});
@@ -448,14 +457,21 @@ export async function runInteractiveAgent(options: {
     agent = await connectToAgent({
       bin: selectedAgent.bin,
       systemPrompt,
-      callbacks,
+      callbacks: {
+        onText: (text) => tui.writeText(text),
+        onToolCall: (call) => tui.onToolCall(call),
+        onToolCallUpdate: (call) => tui.onToolCallUpdate(call),
+      },
     });
 
     // ── Conversation loop ─────────────────────────────────────────────────
     let currentMessage = userMessage;
     while (true) {
       const result = await agent.prompt(currentMessage);
-      process.stdout.write('\n\n');
+
+      // Unmount TUI for user input
+      tui.unmount();
+      process.stdout.write('\n');
 
       // If the agent stopped for a reason other than end_turn, break
       if (result.stopReason !== 'end_turn') {
@@ -482,13 +498,15 @@ export async function runInteractiveAgent(options: {
         break;
       }
 
+      // Remount TUI for next turn
+      tui.remount();
       currentMessage = followUp;
     }
   } catch (error) {
+    tui.unmount();
     console.error('\nError:', error instanceof Error ? error.message : error);
     process.exit(1);
   } finally {
-    callbacks.cleanup();
     process.removeListener('SIGINT', handleInterrupt);
     if (agent) agent.close();
   }
