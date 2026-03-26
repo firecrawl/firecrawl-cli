@@ -565,3 +565,89 @@ export async function runInteractiveAgent(options: {
     if (agent) agent.close();
   }
 }
+
+// ─── Headless mode ──────────────────────────────────────────────────────────
+
+/**
+ * Run an ACP agent headlessly with a prompt. Returns the session path
+ * so callers (other agents, scripts) know where to find the output.
+ */
+export async function runHeadlessAgent(opts: {
+  prompt: string;
+  format?: string;
+  provider?: string;
+}): Promise<void> {
+  const agents = detectAgents();
+  const available = agents.filter((a) => a.available);
+
+  if (available.length === 0) {
+    console.error('No ACP agents found.');
+    process.exit(1);
+  }
+
+  // Pick agent: flag > preference > first available
+  const prefs = loadPreferences();
+  const agentName = opts.provider || prefs.defaultAgent || available[0].name;
+  const selectedAgent =
+    available.find((a) => a.name === agentName) || available[0];
+  const format = opts.format || 'json';
+
+  const session = createSession({
+    provider: selectedAgent.name,
+    prompt: opts.prompt,
+    schema: [],
+    format,
+  });
+
+  const sessionDir = getSessionDir(session.id);
+  const systemPrompt = buildSystemPrompt({ format, sessionDir });
+  const userMessage = `Gather data: ${opts.prompt}.`;
+
+  // Print session info for the caller
+  console.log(
+    JSON.stringify({
+      sessionId: session.id,
+      sessionDir,
+      output: session.outputPath,
+      agent: selectedAgent.displayName,
+      status: 'running',
+    })
+  );
+
+  try {
+    const agent = await connectToAgent({
+      bin: selectedAgent.bin,
+      systemPrompt,
+      callbacks: {
+        onText: () => {}, // silent
+        onToolCall: () => {},
+        onToolCallUpdate: () => {},
+      },
+    });
+
+    await agent.prompt(userMessage);
+    agent.close();
+
+    // Update session and print final status
+    updateSession(session.id, { iterations: 1 });
+    console.log(
+      JSON.stringify({
+        sessionId: session.id,
+        sessionDir,
+        output: session.outputPath,
+        agent: selectedAgent.displayName,
+        status: 'completed',
+      })
+    );
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        sessionId: session.id,
+        sessionDir,
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
+    process.exit(1);
+  }
+}

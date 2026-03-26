@@ -18,7 +18,10 @@ import { handleCrawlCommand } from './commands/crawl';
 import { handleMapCommand } from './commands/map';
 import { handleSearchCommand } from './commands/search';
 import { handleAgentCommand } from './commands/agent';
-import { runInteractiveAgent } from './commands/agent-interactive';
+import {
+  runInteractiveAgent,
+  runHeadlessAgent,
+} from './commands/agent-interactive';
 import {
   handleBrowserLaunch,
   handleBrowserExecute,
@@ -703,13 +706,15 @@ function createAgentCommand(): Command {
     .option('--json', 'Output as JSON format', false)
     .option('--pretty', 'Pretty print JSON output', false)
     .option('-y, --yes', 'Auto-approve all tool permissions', false)
+    .option(
+      '--api',
+      'Use Firecrawl API agent instead of local ACP agent',
+      false
+    )
     .action(async (promptOrJobId, options) => {
-      // Interactive mode: no prompt, or -i flag, or --session, or --provider
+      // Interactive mode: no prompt, or -i flag, or --session
       const isInteractive =
-        !promptOrJobId ||
-        options.interactive ||
-        options.session ||
-        options.provider;
+        !promptOrJobId || options.interactive || options.session;
 
       if (isInteractive) {
         await runInteractiveAgent({
@@ -723,6 +728,16 @@ function createAgentCommand(): Command {
 
       // Auto-detect if it's a job ID (UUID format)
       const isStatusCheck = options.status || isJobId(promptOrJobId);
+
+      // Headless ACP mode: prompt provided, not a job ID, not --api
+      if (!isStatusCheck && !options.api) {
+        await runHeadlessAgent({
+          prompt: promptOrJobId,
+          format: options.format || 'json',
+          provider: options.provider,
+        });
+        return;
+      }
 
       // Parse URLs
       let urls: string[] | undefined;
