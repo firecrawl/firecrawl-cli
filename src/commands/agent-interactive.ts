@@ -135,6 +135,13 @@ Start by analyzing the request and proposing a schema.`;
 
 // ─── Tool call formatting ───────────────────────────────────────────────────
 
+function extractFirecrawlArg(cmd: string, prefix: string): string {
+  return cmd
+    .replace(new RegExp(`^${prefix}\\s*`), '')
+    .split(/\s/)[0]
+    .replace(/^["']|["']$/g, '');
+}
+
 function formatToolCall(call: ToolCallInfo): string {
   const input = call.rawInput as Record<string, unknown> | undefined;
 
@@ -142,63 +149,52 @@ function formatToolCall(call: ToolCallInfo): string {
   if (input?.command && typeof input.command === 'string') {
     const cmd = input.command.trim();
 
-    // Firecrawl commands — show them prominently
+    // Firecrawl commands
     if (cmd.startsWith('firecrawl search')) {
-      const query = cmd
-        .replace(/^firecrawl search\s*/, '')
-        .replace(/^["']|["']$/g, '');
-      return `searching "${query}"`;
+      const query = extractFirecrawlArg(cmd, 'firecrawl search');
+      return `Search  "${query}"`;
     }
     if (cmd.startsWith('firecrawl scrape')) {
-      const url = cmd
-        .replace(/^firecrawl scrape\s*/, '')
-        .split(/\s/)[0]
-        .replace(/^["']|["']$/g, '');
-      return `scraping ${url}`;
+      const url = extractFirecrawlArg(cmd, 'firecrawl scrape');
+      return `Scrape  ${url}`;
     }
     if (cmd.startsWith('firecrawl map')) {
-      const url = cmd
-        .replace(/^firecrawl map\s*/, '')
-        .split(/\s/)[0]
-        .replace(/^["']|["']$/g, '');
-      return `mapping ${url}`;
+      const url = extractFirecrawlArg(cmd, 'firecrawl map');
+      return `Map     ${url}`;
     }
     if (cmd.startsWith('firecrawl crawl')) {
-      const url = cmd
-        .replace(/^firecrawl crawl\s*/, '')
-        .split(/\s/)[0]
-        .replace(/^["']|["']$/g, '');
-      return `crawling ${url}`;
+      const url = extractFirecrawlArg(cmd, 'firecrawl crawl');
+      return `Crawl   ${url}`;
     }
     if (cmd.startsWith('firecrawl')) {
-      return cmd;
+      return `Run     ${cmd}`;
     }
 
-    // Write commands — show the output path
+    // Write commands
     if (cmd.startsWith('cat') && cmd.includes('>')) {
       const outFile = cmd.split('>').pop()?.trim() || '';
-      return `writing ${outFile}`;
+      return `Write   ${outFile}`;
     }
 
-    // Generic command — show a truncated version
+    // Generic command
     const short = cmd.length > 80 ? cmd.slice(0, 77) + '...' : cmd;
-    return short;
+    return `Run     ${short}`;
   }
 
   // File operations
   if (input?.path && typeof input.path === 'string') {
     const basename = input.path.split('/').pop() || input.path;
     if (call.title.toLowerCase().includes('write')) {
-      return `writing ${basename}`;
+      return `Write   ${basename}`;
     }
     if (call.title.toLowerCase().includes('read')) {
-      return `reading ${basename}`;
+      return `Read    ${basename}`;
     }
-    return `${call.title.toLowerCase()} ${basename}`;
+    return `${call.title}  ${basename}`;
   }
 
-  // Fallback to title
-  return call.title.toLowerCase();
+  // Fallback
+  return call.title;
 }
 
 // ─── Interactive flow ───────────────────────────────────────────────────────
@@ -240,7 +236,7 @@ export async function runInteractiveAgent(options: {
 
     const userMessage = `Continue from previous session. Original request: "${session.prompt}". Schema fields: ${session.schema.join(', ')}. Output already at: ${session.outputPath}. New instruction: ${refinement}`;
 
-    console.log(`\n🔥 Reconnecting to ${session.provider} via ACP...\n`);
+    console.log(`\n🔥 Resuming session via Agent Client Protocol...\n`);
 
     const agent = await connectToAgent({
       bin: session.provider,
@@ -250,12 +246,12 @@ export async function runInteractiveAgent(options: {
         onToolCall: (call: ToolCallInfo) => {
           const detail = formatToolCall(call);
           if (detail) {
-            process.stderr.write(`\n  🔥 ${detail}\n`);
+            process.stderr.write(`  🔥 ${detail}\n`);
           }
         },
         onToolCallUpdate: (call: ToolCallInfo) => {
           if (call.status === 'completed') {
-            process.stderr.write(`  ✅ done\n`);
+            process.stderr.write(`     Done\n`);
           }
         },
       },
@@ -375,7 +371,9 @@ export async function runInteractiveAgent(options: {
   const userMessage = parts.join('. ') + '.';
 
   // ── Connect via ACP ───────────────────────────────────────────────────
-  console.log(`\n🔥 Connecting to ${selectedAgent.displayName} via ACP...\n`);
+  console.log(
+    `\n🔥 Loading ${selectedAgent.displayName} via Agent Client Protocol...\n`
+  );
 
   // Handle Ctrl+C gracefully
   let agent: Awaited<ReturnType<typeof connectToAgent>> | null = null;
@@ -399,14 +397,14 @@ export async function runInteractiveAgent(options: {
         onToolCall: (call: ToolCallInfo) => {
           const detail = formatToolCall(call);
           if (detail) {
-            process.stderr.write(`\n  🔥 ${detail}\n`);
+            process.stderr.write(`  🔥 ${detail}\n`);
           }
         },
         onToolCallUpdate: (call: ToolCallInfo) => {
           if (call.status === 'completed') {
-            process.stderr.write(`  ✅ done\n`);
+            process.stderr.write(`     Done\n`);
           } else if (call.status === 'errored') {
-            process.stderr.write(`  ❌ failed\n`);
+            process.stderr.write(`     Failed\n`);
           }
         },
       },
