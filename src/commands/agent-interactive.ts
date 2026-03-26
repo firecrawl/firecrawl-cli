@@ -202,9 +202,8 @@ export async function runInteractiveAgent(options: {
   if (available.length === 0) {
     console.error(
       '\nNo ACP-compatible agents found. Install one of:\n' +
-        '  npm install -g @anthropic-ai/claude-code    (Claude Code)\n' +
-        '  npm install -g @openai/codex                (Codex)\n' +
-        '  npm install -g @anthropic-ai/claude-code    (Gemini CLI)\n' +
+        '  npm install -g @zed-industries/claude-agent-acp  (Claude Code)\n' +
+        '  npm install -g @zed-industries/codex-acp         (Codex)\n' +
         '  See https://agentclientprotocol.com/get-started/agents\n'
     );
     process.exit(1);
