@@ -25,6 +25,11 @@ export interface ACPClientCallbacks {
   onToolCall?: (call: ToolCallInfo) => void;
   onToolCallUpdate?: (call: ToolCallInfo) => void;
   onPlan?: (entries: Array<{ content: string; status: string }>) => void;
+  onUsage?: (update: {
+    size: number;
+    used: number;
+    cost?: { amount: number; currency: string } | null;
+  }) => void;
   onPermissionRequest?: (
     title: string,
     options: Array<{ name: string; optionId: string }>
@@ -114,6 +119,16 @@ class FirecrawlClient implements acp.Client {
               status: e.status,
             }))
           );
+        }
+        break;
+
+      case 'usage_update':
+        if (this.callbacks.onUsage) {
+          this.callbacks.onUsage({
+            size: update.size,
+            used: update.used,
+            cost: update.cost ?? undefined,
+          });
         }
         break;
 

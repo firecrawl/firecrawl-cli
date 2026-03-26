@@ -1,40 +1,26 @@
 /**
- * Firecrawl agent display — clean inline terminal output.
+ * Firecrawl Agent TUI — phase-aware inline terminal display.
  *
- * Design principles (inspired by Codex CLI):
- * - Show firecrawl operations once, update status in place
- * - Deduplicate repeated calls to the same URL
- * - Group background work into single status lines
- * - Visual separation between agent text and tool execution
- * - Status summary at turn boundaries
+ * Renders clear section breaks, tool completions, and a persistent
+ * status line showing tokens/cost/time. No ANSI cursor tricks —
+ * everything scrolls naturally. Works in pipes and as an agent harness.
  */
 
 import type { ToolCallInfo } from './client';
 
-// ─── Style helpers (TTY-aware) ──────────────────────────────────────────────
+// ─── Styles (TTY-aware) ─────────────────────────────────────────────────────
 
-const isTTY = process.stderr.isTTY;
-const dim = (s: string) => (isTTY ? `\x1b[2m${s}\x1b[0m` : s);
-const green = (s: string) => (isTTY ? `\x1b[32m${s}\x1b[0m` : s);
-const red = (s: string) => (isTTY ? `\x1b[31m${s}\x1b[0m` : s);
-const bold = (s: string) => (isTTY ? `\x1b[1m${s}\x1b[0m` : s);
+const tty = process.stderr.isTTY;
+const dim = (s: string) => (tty ? `\x1b[2m${s}\x1b[0m` : s);
+const green = (s: string) => (tty ? `\x1b[32m${s}\x1b[0m` : s);
+const red = (s: string) => (tty ? `\x1b[31m${s}\x1b[0m` : s);
+const cyan = (s: string) => (tty ? `\x1b[36m${s}\x1b[0m` : s);
+const bold = (s: string) => (tty ? `\x1b[1m${s}\x1b[0m` : s);
+const BAR = '━';
 
 // ─── Tool call categorization ───────────────────────────────────────────────
 
-type CallKind =
-  | 'search'
-  | 'scrape'
-  | 'map'
-  | 'crawl'
-  | 'extract'
-  | 'write'
-  | 'background';
-
-interface CallDescription {
-  label: string;
-  kind: CallKind;
-  dedupeKey: string; // for deduplication (e.g., URL)
-}
+type Phase = 'planning' | 'discovering' | 'extracting' | 'output';
 
 function extractUrl(cmd: string, prefix: string): string | null {
   const quoted = cmd.match(
@@ -49,73 +35,80 @@ function extractUrl(cmd: string, prefix: string): string | null {
   return null;
 }
 
-function categorizeCall(
-  call: ToolCallInfo,
-  sessionDir: string
-): CallDescription | null {
+interface CallInfo {
+  label: string;
+  phase: Phase;
+  dedupeKey: string;
+}
+
+function categorize(call: ToolCallInfo, sessionDir: string): CallInfo | null {
   const input = call.rawInput as Record<string, unknown> | undefined;
-  const title = call.title.toLowerCase();
 
   if (input?.command && typeof input.command === 'string') {
     const cmd = input.command.trim();
 
     if (cmd.startsWith('firecrawl search')) {
-      const match = cmd.match(/firecrawl search\s+["']([^"']+)["']/);
-      const query = match ? match[1] : 'web';
+      const m = cmd.match(/firecrawl search\s+["']([^"']+)["']/);
+      const q = m ? m[1] : 'web';
       return {
-        label: `Searching "${query}"`,
-        kind: 'search',
-        dedupeKey: `search:${query}`,
+        label: `Searched "${q}"`,
+        phase: 'discovering',
+        dedupeKey: `search:${q}`,
       };
     }
     if (cmd.startsWith('firecrawl scrape')) {
       const url = extractUrl(cmd, 'firecrawl scrape');
       if (!url) return null;
       return {
-        label: `Scraping ${url}`,
-        kind: 'scrape',
+        label: `Scraped ${url}`,
+        phase: 'extracting',
         dedupeKey: `scrape:${url}`,
       };
     }
     if (cmd.startsWith('firecrawl map')) {
       const url = extractUrl(cmd, 'firecrawl map');
       if (!url) return null;
-      return { label: `Mapping ${url}`, kind: 'map', dedupeKey: `map:${url}` };
+      return {
+        label: `Mapped ${url}`,
+        phase: 'extracting',
+        dedupeKey: `map:${url}`,
+      };
     }
     if (cmd.startsWith('firecrawl crawl')) {
       const url = extractUrl(cmd, 'firecrawl crawl');
       if (!url) return null;
       return {
-        label: `Crawling ${url}`,
-        kind: 'crawl',
+        label: `Crawled ${url}`,
+        phase: 'extracting',
         dedupeKey: `crawl:${url}`,
       };
     }
     if (cmd.startsWith('firecrawl agent')) {
       return {
-        label: 'Running extraction agent',
-        kind: 'extract',
-        dedupeKey: 'extract',
+        label: 'Ran extraction agent',
+        phase: 'extracting',
+        dedupeKey: 'extract-agent',
       };
     }
     if (cmd.includes(sessionDir)) {
       return {
-        label: 'Writing output',
-        kind: 'write',
+        label: 'Wrote output',
+        phase: 'output',
         dedupeKey: 'write-session',
       };
     }
-    // All other commands are background
     return null;
   }
 
-  // File writes to session dir
   if (input?.path && typeof input.path === 'string') {
-    if (input.path.startsWith(sessionDir) && title.includes('write')) {
+    if (
+      input.path.startsWith(sessionDir) &&
+      call.title.toLowerCase().includes('write')
+    ) {
       const basename = input.path.split('/').pop() || input.path;
       return {
-        label: `Writing ${basename}`,
-        kind: 'write',
+        label: `Wrote ${basename}`,
+        phase: 'output',
         dedupeKey: `write:${basename}`,
       };
     }
@@ -125,14 +118,34 @@ function categorizeCall(
   return null;
 }
 
+// ─── Section header ─────────────────────────────────────────────────────────
+
+const SECTION_WIDTH = 54;
+
+function sectionHeader(name: string): string {
+  const pad = SECTION_WIDTH - name.length - 5; // "━━━ Name " + bars
+  return dim(`${BAR.repeat(3)} ${name} ${BAR.repeat(Math.max(pad, 3))}`);
+}
+
+function sectionFooter(): string {
+  return dim(BAR.repeat(SECTION_WIDTH));
+}
+
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 export interface TUIHandle {
   onText: (text: string) => void;
   onToolCall: (call: ToolCallInfo) => void;
   onToolCallUpdate: (call: ToolCallInfo) => void;
-  addCredits: (n: number) => void;
+  onUsage: (update: {
+    size: number;
+    used: number;
+    cost?: { amount: number; currency: string } | null;
+  }) => void;
+
+  section: (name: string) => void;
   printStatus: () => void;
+  printSummary: () => void;
   pause: () => void;
   resume: () => void;
   cleanup: () => void;
@@ -144,17 +157,15 @@ export function startTUI(opts: {
   format: string;
   sessionDir: string;
 }): TUIHandle {
-  // Track calls by ID → description
-  const calls = new Map<string, CallDescription>();
-  // Track which dedupe keys we've already printed (to avoid duplicate lines)
-  const printed = new Set<string>();
-  // Track completed dedupe keys
+  const calls = new Map<string, CallInfo>();
   const completed = new Set<string>();
+  let currentPhase: Phase | null = null;
 
-  let credits = 0;
+  // Metrics
+  let tokensUsed = 0;
+  let tokensTotal = 0;
+  let cost: { amount: number; currency: string } | null = null;
   const startedAt = Date.now();
-  let lastOutputWasText = false;
-  let backgroundShown = false;
 
   function elapsed(): string {
     const secs = Math.round((Date.now() - startedAt) / 1000);
@@ -163,76 +174,94 @@ export function startTUI(opts: {
     return m > 0 ? `${m}m ${s}s` : `${s}s`;
   }
 
-  function statusLine(): string {
-    const fmt = opts.format.toUpperCase();
-    return dim(
-      `── ${opts.sessionId} · ${opts.agentName} · ${credits} credits · ${elapsed()} · ${fmt}`
-    );
+  function statusParts(): string[] {
+    const parts: string[] = [];
+    if (cost) {
+      parts.push(`$${cost.amount.toFixed(2)}`);
+    }
+    if (tokensUsed > 0) {
+      const k = Math.round(tokensUsed / 1000);
+      parts.push(`${k}k tokens`);
+    }
+    parts.push(elapsed());
+    return parts;
   }
 
-  function ensureNewSection() {
-    if (lastOutputWasText) {
-      lastOutputWasText = false;
-    }
+  function statusLine(): string {
+    return dim(statusParts().join(' · '));
+  }
+
+  function ensurePhase(phase: Phase) {
+    if (phase === currentPhase) return;
+    const names: Record<Phase, string> = {
+      planning: 'Planning',
+      discovering: 'Discovering',
+      extracting: 'Extracting',
+      output: 'Output',
+    };
+    currentPhase = phase;
+    process.stderr.write(`\n${sectionHeader(names[phase])}\n\n`);
   }
 
   return {
     onText(text: string) {
-      // If we were showing tool calls and now getting text, add spacing
-      if (!lastOutputWasText && printed.size > 0) {
-        process.stdout.write('\n');
-      }
       process.stdout.write(text);
-      lastOutputWasText = true;
-      backgroundShown = false;
     },
 
     onToolCall(call: ToolCallInfo) {
-      const desc = categorizeCall(call, opts.sessionDir);
-      if (!desc) return;
-      // Just register — we print only on completion
-      calls.set(call.id, desc);
+      const info = categorize(call, opts.sessionDir);
+      if (!info) return;
+      calls.set(call.id, info);
     },
 
     onToolCallUpdate(call: ToolCallInfo) {
-      const desc = calls.get(call.id);
-      if (!desc) return;
+      const info = calls.get(call.id);
+      if (!info) return;
 
       if (call.status === 'completed' || call.status === 'errored') {
         calls.delete(call.id);
+        if (completed.has(info.dedupeKey)) return;
+        completed.add(info.dedupeKey);
 
-        // Deduplicate: only print once per unique operation
-        if (completed.has(desc.dedupeKey)) return;
-        completed.add(desc.dedupeKey);
-
+        ensurePhase(info.phase);
         const icon = call.status === 'completed' ? green('✓') : red('✗');
-        process.stderr.write(`  ${icon} ${desc.label}\n`);
+        process.stderr.write(`  ${icon} ${info.label}\n`);
       }
     },
 
-    addCredits(n: number) {
-      credits += n;
+    onUsage(update) {
+      tokensUsed = update.used;
+      tokensTotal = update.size;
+      if (update.cost) {
+        cost = { amount: update.cost.amount, currency: update.cost.currency };
+      }
+    },
+
+    section(name: string) {
+      currentPhase = null; // reset so auto-phase doesn't conflict
+      process.stderr.write(`\n${sectionHeader(name)}\n\n`);
     },
 
     printStatus() {
-      process.stderr.write(`\n${statusLine()}\n\n`);
+      process.stderr.write(`${statusLine()}\n`);
+    },
+
+    printSummary() {
+      process.stderr.write(`\n${sectionFooter()}\n`);
+      process.stderr.write(`${statusLine()}\n`);
     },
 
     pause() {
       process.stderr.write(`\n${statusLine()}\n`);
-      lastOutputWasText = false;
     },
 
     resume() {
-      // Reset dedup for next turn — same URLs may be re-scraped intentionally
-      printed.clear();
       completed.clear();
-      backgroundShown = false;
-      lastOutputWasText = false;
+      currentPhase = null;
     },
 
     cleanup() {
-      process.stderr.write(`\n${statusLine()}\n`);
+      // noop — summary is explicit
     },
   };
 }

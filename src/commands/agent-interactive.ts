@@ -8,7 +8,7 @@
  */
 
 import { type ACPAgent, detectAgents } from '../acp/registry';
-import { connectToAgent, type ToolCallInfo } from '../acp/client';
+import { connectToAgent } from '../acp/client';
 import { startTUI } from '../acp/tui';
 import {
   createSession,
@@ -19,9 +19,9 @@ import {
 import {
   FIRECRAWL_TOOLS_BLOCK,
   SUBAGENT_INSTRUCTIONS,
-  askPermissionMode,
 } from './experimental/shared';
-import { type Backend, BACKENDS, launchAgent } from './experimental/backends';
+
+const bold = (s: string) => (process.stderr.isTTY ? `\x1b[1m${s}\x1b[0m` : s);
 
 // ─── Suggestions ────────────────────────────────────────────────────────────
 
@@ -176,118 +176,6 @@ ${outputInstructions[opts.format] || outputInstructions.json}
 - Keep the user informed at every step — they should never wonder what you're doing.`;
 }
 
-// ─── Tool call display ──────────────────────────────────────────────────────
-
-/**
- * Parse a tool call and return a user-facing label, or null to hide it.
- * Only firecrawl operations and session output writes are shown.
- */
-/** Extract a URL from a firecrawl command, ignoring flags, pipes, and redirects. */
-function extractUrl(cmd: string, prefix: string): string | null {
-  // Try quoted URL first
-  const quoted = cmd.match(
-    new RegExp(`${prefix}\\s+["'](https?://[^"']+)["']`)
-  );
-  if (quoted) return quoted[1];
-  // Try unquoted URL
-  const parts = cmd.replace(new RegExp(`^${prefix}\\s*`), '').split(/\s+/);
-  for (const part of parts) {
-    const clean = part.replace(/^["']|["']$/g, '');
-    if (clean.startsWith('http')) return clean;
-  }
-  return null;
-}
-
-function describeToolCall(
-  call: ToolCallInfo,
-  sessionDir: string
-): string | null {
-  const input = call.rawInput as Record<string, unknown> | undefined;
-
-  if (input?.command && typeof input.command === 'string') {
-    const cmd = input.command.trim();
-
-    if (cmd.startsWith('firecrawl search')) {
-      // Extract just the quoted query, stripping flags and pipes
-      const match = cmd.match(/firecrawl search\s+["']([^"']+)["']/);
-      if (match) return `Searching "${match[1]}"`;
-      const arg = cmd
-        .replace(/^firecrawl search\s*/, '')
-        .split(/\s+/)[0]
-        .replace(/^["']|["']$/g, '');
-      return `Searching "${arg}"`;
-    }
-    if (cmd.startsWith('firecrawl scrape')) {
-      const url = extractUrl(cmd, 'firecrawl scrape');
-      if (url) return `Scraping ${url}`;
-      return null;
-    }
-    if (cmd.startsWith('firecrawl map')) {
-      const url = extractUrl(cmd, 'firecrawl map');
-      if (url) return `Mapping ${url}`;
-      return null;
-    }
-    if (cmd.startsWith('firecrawl crawl')) {
-      const url = extractUrl(cmd, 'firecrawl crawl');
-      if (url) return `Crawling ${url}`;
-      return null;
-    }
-    if (cmd.startsWith('firecrawl agent')) {
-      return 'Running Firecrawl extraction agent';
-    }
-
-    // Hide everything else (grep, python, cat, temp files, help, etc.)
-    return null;
-  }
-
-  // File writes to the session directory are shown
-  if (input?.path && typeof input.path === 'string') {
-    if (
-      input.path.startsWith(sessionDir) &&
-      call.title.toLowerCase().includes('write')
-    ) {
-      const basename = input.path.split('/').pop() || input.path;
-      return `Writing ${basename}`;
-    }
-    return null;
-  }
-
-  return null;
-}
-
-// ─── Tool call display ──────────────────────────────────────────────────────
-
-function buildCallbacks(sessionDir: string): {
-  onText: (text: string) => void;
-  onToolCall: (call: ToolCallInfo) => void;
-  onToolCallUpdate: (call: ToolCallInfo) => void;
-  cleanup: () => void;
-} {
-  const pending = new Map<string, string>();
-
-  return {
-    onText: (text: string) => {
-      process.stdout.write(text);
-    },
-    onToolCall: (call: ToolCallInfo) => {
-      const label = describeToolCall(call, sessionDir);
-      if (!label) return;
-      pending.set(call.id, label);
-      process.stderr.write(`  · ${label}\n`);
-    },
-    onToolCallUpdate: (call: ToolCallInfo) => {
-      if (!pending.has(call.id)) return;
-      const label = pending.get(call.id)!;
-      if (call.status === 'completed' || call.status === 'errored') {
-        pending.delete(call.id);
-        const icon = call.status === 'completed' ? '✓' : '✗';
-        process.stderr.write(`  ${icon} ${label}\n`);
-      }
-    },
-    cleanup: () => {},
-  };
-}
-
 // ─── Session end ────────────────────────────────────────────────────────────
 
 async function showSessionEnd(
@@ -390,16 +278,29 @@ export async function runInteractiveAgent(options: {
 
     const userMessage = `Continue from previous session. Original request: "${session.prompt}". Schema fields: ${session.schema.join(', ')}. Output already at: ${session.outputPath}. New instruction: ${refinement}`;
 
-    console.log(`\nResuming session via Agent Client Protocol...\n`);
+    console.log(`\n🔥 ${bold('Firecrawl Agent')} — Resuming session\n`);
+
+    const resumeTui = startTUI({
+      sessionId: session.id,
+      agentName: session.provider,
+      format: session.format,
+      sessionDir: getSessionDir(session.id),
+    });
 
     const agent = await connectToAgent({
       bin: session.provider,
       systemPrompt,
-      callbacks: buildCallbacks(getSessionDir(session.id)),
+      callbacks: {
+        onText: (text) => resumeTui.onText(text),
+        onToolCall: (call) => resumeTui.onToolCall(call),
+        onToolCallUpdate: (call) => resumeTui.onToolCallUpdate(call),
+        onUsage: (update) => resumeTui.onUsage(update),
+      },
     });
 
     try {
       await agent.prompt(userMessage);
+      resumeTui.printSummary();
     } finally {
       agent.close();
     }
@@ -471,33 +372,6 @@ export async function runInteractiveAgent(options: {
     selectedAgent = agents.find((a) => a.name === chosen)!;
   }
 
-  // ── Select mode ─────────────────────────────────────────────────────────
-  // Check if this agent also has a direct CLI (pipe mode)
-  const pipeBackends: Record<string, Backend> = {
-    claude: 'claude',
-    codex: 'codex',
-    opencode: 'opencode',
-  };
-  const hasPipeMode = selectedAgent.name in pipeBackends;
-
-  let useACP = true;
-  if (hasPipeMode) {
-    const mode = await select({
-      message: 'How should the agent run?',
-      choices: [
-        {
-          name: 'ACP (structured — shows progress, credits, session tracking)',
-          value: 'acp',
-        },
-        {
-          name: `Pipe into ${selectedAgent.displayName} (full terminal, interactive)`,
-          value: 'pipe',
-        },
-      ],
-    });
-    useACP = mode === 'acp';
-  }
-
   // ── Gather prompt ───────────────────────────────────────────────────────
   const promptChoice = await select({
     message: 'What data do you want to gather?',
@@ -557,18 +431,10 @@ export async function runInteractiveAgent(options: {
   if (urls.trim()) parts.push(`Start from these URLs: ${urls}`);
   const userMessage = parts.join('. ') + '.';
 
-  // ── Pipe mode — launch directly into the agent CLI ───────────────────
-  if (!useACP && hasPipeMode) {
-    const backend = pipeBackends[selectedAgent.name];
-    const skipPermissions = options.yes || (await askPermissionMode(backend));
-    console.log(`\nLaunching ${selectedAgent.displayName}...\n`);
-    launchAgent(backend, systemPrompt, userMessage, skipPermissions);
-    return;
-  }
-
   // ── Connect via ACP ───────────────────────────────────────────────────
+  console.log(`\n🔥 ${bold('Firecrawl Agent')}`);
   console.log(
-    `\n🔥 Loading ${selectedAgent.displayName} via Agent Client Protocol...\n`
+    `   ${selectedAgent.displayName} · ${format.toUpperCase()} · Session ${session.id}\n`
   );
 
   // Start TUI
@@ -602,6 +468,7 @@ export async function runInteractiveAgent(options: {
         onText: (text) => tui.onText(text),
         onToolCall: (call) => tui.onToolCall(call),
         onToolCallUpdate: (call) => tui.onToolCallUpdate(call),
+        onUsage: (update) => tui.onUsage(update),
       },
     });
 
@@ -616,7 +483,7 @@ export async function runInteractiveAgent(options: {
 
       // If the agent stopped for a reason other than end_turn, break
       if (result.stopReason !== 'end_turn') {
-        process.stderr.write(`\nStopped (${result.stopReason}).\n`);
+        tui.printSummary();
         break;
       }
 
@@ -634,6 +501,7 @@ export async function runInteractiveAgent(options: {
         trimmed === 'exit' ||
         trimmed === 'quit'
       ) {
+        tui.printSummary();
         await showSessionEnd(
           session.id,
           session.outputPath,
