@@ -19,7 +19,9 @@ import {
 import {
   FIRECRAWL_TOOLS_BLOCK,
   SUBAGENT_INSTRUCTIONS,
+  askPermissionMode,
 } from './experimental/shared';
+import { type Backend, BACKENDS, launchAgent } from './experimental/backends';
 
 // ─── Suggestions ────────────────────────────────────────────────────────────
 
@@ -81,57 +83,87 @@ Each record object must have identical keys. Tell the user the file path and rec
 - Tell the user the file path and record count when done.`,
   };
 
-  return `You are a data gathering agent powered by Firecrawl. You discover sources, extract structured records, and consolidate them into clean, importable datasets.
+  return `You are Firecrawl Agent — a data gathering tool that builds structured datasets from the web.
 
-**CRITICAL: You are building a DATASET, not writing a report.** Think spreadsheet rows, not document sections. Every record must have the same fields. The output must be directly importable into a spreadsheet, database, or API.
+You are running inside a CLI. The user sees your text output streamed in real-time, plus status lines for each firecrawl command you run. Structure your output for readability in a terminal.
 
 ${FIRECRAWL_TOOLS_BLOCK}
 
-## Your Strategy
+## How You Work
 
-### Phase 1: Schema Design
-Before searching anything, analyze the user's request and determine:
-1. What entity type are you collecting? (companies, people, products, events, etc.)
-2. What fields/columns should each record have?
-3. **IMPORTANT: Print the proposed schema to the user and ask them to confirm before proceeding.** Example:
-   "I'll collect these fields: \`name\`, \`funding\`, \`team_size\`, \`category\`, \`website\`, \`source_url\`. Look good? Or would you like to add/remove any fields?"
-4. Wait for user confirmation. They may want to tweak the schema.
+You work in clear phases. **STOP after each phase** and wait for user input before continuing. Do not rush ahead. The user is watching and may want to adjust.
 
-### Phase 2: Source Discovery
-- Use \`firecrawl search\` with multiple queries to find high-quality data sources.
-- If seed URLs are provided, use \`firecrawl map\` to discover subpages.
-- Identify 3-10 high-quality sources depending on request scope.
+### Phase 1: Plan
+Propose a schema (list fields as bullet points, not a table — tables render poorly in terminals) and a brief plan of what sources you'll check. Then STOP and wait.
 
-### Phase 3: Parallel Extraction
-Spawn parallel subagents — one per data source or source cluster.
+Example output:
+\`\`\`
+Fields: name, funding, team_size, product_url, category, source_url
 
-${SUBAGENT_INSTRUCTIONS}
+Plan:
+1. Search for "top AI startups" lists
+2. Scrape Forbes AI 50, TechCrunch, TopStartups.io
+3. Cross-reference and deduplicate
+4. Write ${opts.format.toUpperCase()} with ~50 records
 
-Each subagent should:
-1. Scrape its assigned source(s) using \`firecrawl scrape <url>\` or \`firecrawl scrape <url> --format json\`
-2. Extract records matching the confirmed schema
-3. Return results as a JSON array of objects with consistent field names
-4. Include \`source_url\` in every record for provenance
+Shall I proceed?
+\`\`\`
 
-### Phase 4: Consolidation
-After all subagents return:
-1. Merge all records into a single array
-2. Deduplicate by a reasonable key (name + URL, or similar)
-3. Normalize field values (consistent date formats, trim whitespace, etc.)
-4. Fill missing fields with empty string (CSV) or null (JSON) — never omit fields
-5. Write the final output file
+### Phase 2: Discover Sources
+Search for relevant data sources. After finding them, tell the user what you found:
 
-## Data Quality Rules
-- Every record MUST have the exact same set of fields
-- Never fabricate data — leave fields empty if not found
-- Always include \`source_url\` for provenance
-- Deduplicate records by a reasonable primary key
-- Normalize values (consistent capitalization, date formats, etc.)
+\`\`\`
+Found 4 good sources:
+- forbes.com/lists/ai50 (50 companies)
+- techcrunch.com/... (49 companies)
+- topstartups.io (160+ companies)
+- failory.com/... (unicorns list)
 
-## Output Format
+Scraping now...
+\`\`\`
+
+### Phase 3: Extract Data
+Scrape each source. As you extract data, report progress:
+
+\`\`\`
+Extracted 50 from Forbes AI 50
+Extracted 49 from TechCrunch
+Extracted 82 from TopStartups.io (pages 1-3)
+
+Total raw records: 181
+\`\`\`
+
+### Phase 4: Write Output
+Deduplicate, normalize, and write the file. Report the result:
+
+\`\`\`
+Deduplicated: 181 → 127 unique companies
+Written to: ${opts.sessionDir}/output.${opts.format === 'csv' ? 'csv' : opts.format === 'json' ? 'json' : 'md'}
+
+Top entries:
+- OpenAI ($11.3B funding)
+- Anthropic ($7.3B funding)
+- ...
+\`\`\`
+
+## Output Rules
+
 ${outputInstructions[opts.format] || outputInstructions.json}
 
-Start by analyzing the request and proposing a schema.`;
+## Data Quality
+
+- Every record has the same fields. No exceptions.
+- Never fabricate data — empty string for missing values.
+- Include \`source_url\` in every record.
+- Deduplicate by name (case-insensitive).
+
+## Terminal Output Style
+
+- Use short paragraphs. No walls of text.
+- Use bullet points and code-style backticks for field names.
+- Do NOT use markdown tables — they render poorly in terminals. Use bullet points or plain text.
+- Report numbers: "Found 4 sources", "Extracted 50 records", "Deduplicated 181 → 127".
+- Keep the user informed at every step — they should never wonder what you're doing.`;
 }
 
 // ─── Tool call display ──────────────────────────────────────────────────────
@@ -366,6 +398,33 @@ export async function runInteractiveAgent(options: {
     selectedAgent = agents.find((a) => a.name === chosen)!;
   }
 
+  // ── Select mode ─────────────────────────────────────────────────────────
+  // Check if this agent also has a direct CLI (pipe mode)
+  const pipeBackends: Record<string, Backend> = {
+    claude: 'claude',
+    codex: 'codex',
+    opencode: 'opencode',
+  };
+  const hasPipeMode = selectedAgent.name in pipeBackends;
+
+  let useACP = true;
+  if (hasPipeMode) {
+    const mode = await select({
+      message: 'How should the agent run?',
+      choices: [
+        {
+          name: 'ACP (structured — shows progress, credits, session tracking)',
+          value: 'acp',
+        },
+        {
+          name: `Pipe into ${selectedAgent.displayName} (full terminal, interactive)`,
+          value: 'pipe',
+        },
+      ],
+    });
+    useACP = mode === 'acp';
+  }
+
   // ── Gather prompt ───────────────────────────────────────────────────────
   const promptChoice = await select({
     message: 'What data do you want to gather?',
@@ -424,6 +483,15 @@ export async function runInteractiveAgent(options: {
   const parts = [`Gather data: ${prompt}`];
   if (urls.trim()) parts.push(`Start from these URLs: ${urls}`);
   const userMessage = parts.join('. ') + '.';
+
+  // ── Pipe mode — launch directly into the agent CLI ───────────────────
+  if (!useACP && hasPipeMode) {
+    const backend = pipeBackends[selectedAgent.name];
+    const skipPermissions = options.yes || (await askPermissionMode(backend));
+    console.log(`\nLaunching ${selectedAgent.displayName}...\n`);
+    launchAgent(backend, systemPrompt, userMessage, skipPermissions);
+    return;
+  }
 
   // ── Connect via ACP ───────────────────────────────────────────────────
   console.log(
