@@ -15,6 +15,8 @@ import {
   getSessionDir,
   loadSession,
   updateSession,
+  loadPreferences,
+  savePreferences,
 } from '../utils/acp';
 import {
   FIRECRAWL_TOOLS_BLOCK,
@@ -360,6 +362,7 @@ export async function runInteractiveAgent(options: {
 
   // ── Select agent ────────────────────────────────────────────────────────
   let selectedAgent: ACPAgent;
+  const prefs = loadPreferences();
 
   if (options.provider) {
     const match = agents.find((a) => a.name === options.provider);
@@ -370,6 +373,12 @@ export async function runInteractiveAgent(options: {
       process.exit(1);
     }
     selectedAgent = match;
+  } else if (
+    prefs.defaultAgent &&
+    available.find((a) => a.name === prefs.defaultAgent)
+  ) {
+    // Use saved default
+    selectedAgent = available.find((a) => a.name === prefs.defaultAgent)!;
   } else {
     const installedChoices = available.map((a) => ({
       name: a.displayName,
@@ -401,6 +410,8 @@ export async function runInteractiveAgent(options: {
     });
 
     selectedAgent = agents.find((a) => a.name === chosen)!;
+    // Save as default for next time
+    savePreferences({ defaultAgent: selectedAgent.name });
   }
 
   // ── Gather prompt ───────────────────────────────────────────────────────

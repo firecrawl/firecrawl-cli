@@ -39,6 +39,35 @@ function ensureSessionsDir(): void {
   }
 }
 
+// ─── Preferences ────────────────────────────────────────────────────────────
+
+interface Preferences {
+  defaultAgent?: string;
+  defaultFormat?: string;
+}
+
+function getPrefsPath(): string {
+  return path.join(getFirecrawlDir(), 'preferences.json');
+}
+
+export function loadPreferences(): Preferences {
+  try {
+    const p = getPrefsPath();
+    if (!fs.existsSync(p)) return {};
+    return JSON.parse(fs.readFileSync(p, 'utf-8')) as Preferences;
+  } catch {
+    return {};
+  }
+}
+
+export function savePreferences(patch: Partial<Preferences>): void {
+  const dir = getFirecrawlDir();
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const current = loadPreferences();
+  const updated = { ...current, ...patch };
+  fs.writeFileSync(getPrefsPath(), JSON.stringify(updated, null, 2));
+}
+
 // ─── Session ID ─────────────────────────────────────────────────────────────
 
 function generateId(): string {
