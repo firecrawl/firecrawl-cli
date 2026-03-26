@@ -335,11 +335,39 @@ export async function runInteractiveAgent(options: {
       },
     });
 
-    const result = await agent.prompt(userMessage);
-    process.stdout.write('\n');
-    process.stderr.write(
-      `\nCompleted (${result.stopReason}). Output: ${session.outputPath}\n`
-    );
+    // ── Conversation loop ─────────────────────────────────────────────────
+    let currentMessage = userMessage;
+    while (true) {
+      const result = await agent.prompt(currentMessage);
+      process.stdout.write('\n\n');
+
+      // If the agent stopped for a reason other than end_turn, break
+      if (result.stopReason !== 'end_turn') {
+        process.stderr.write(`Stopped (${result.stopReason}).\n`);
+        break;
+      }
+
+      // Ask user for follow-up
+      const followUp = await input({
+        message: '→',
+        default: '',
+      });
+
+      // Empty input or "done"/"exit"/"quit" ends the loop
+      const trimmed = followUp.trim().toLowerCase();
+      if (
+        !trimmed ||
+        trimmed === 'done' ||
+        trimmed === 'exit' ||
+        trimmed === 'quit'
+      ) {
+        process.stderr.write(`\nSession ${session.id} saved.\n`);
+        process.stderr.write(`Output: ${session.outputPath}\n`);
+        break;
+      }
+
+      currentMessage = followUp;
+    }
   } catch (error) {
     console.error('\nError:', error instanceof Error ? error.message : error);
     process.exit(1);
