@@ -22,6 +22,7 @@ import {
 } from './experimental/shared';
 
 const bold = (s: string) => (process.stderr.isTTY ? `\x1b[1m${s}\x1b[0m` : s);
+const dim = (s: string) => (process.stderr.isTTY ? `\x1b[2m${s}\x1b[0m` : s);
 
 // ─── Suggestions ────────────────────────────────────────────────────────────
 
@@ -181,7 +182,20 @@ ${outputInstructions[opts.format] || outputInstructions.json}
 - Use bullet points and code-style backticks for field names.
 - Do NOT use markdown tables — they render poorly in terminals. Use bullet points or plain text.
 - Report numbers: "Found 4 sources", "Extracted 50 records", "Deduplicated 181 → 127".
-- Keep the user informed at every step — they should never wonder what you're doing.`;
+- Keep the user informed at every step — they should never wonder what you're doing.
+
+## Follow-Up Suggestions
+
+After completing the output file, always end your message with 2-3 suggested follow-up actions the user might want. Format them as a numbered list, like:
+
+\`\`\`
+Next steps:
+1. Add funding amounts and team sizes
+2. Filter to only companies founded after 2020
+3. Export as JSON with nested category tags
+\`\`\`
+
+These should be specific to the data just gathered — not generic. Think about what would make the dataset more useful.`;
 }
 
 // ─── Session end ────────────────────────────────────────────────────────────
@@ -494,6 +508,9 @@ export async function runInteractiveAgent(options: {
         tui.printSummary();
         break;
       }
+
+      // Show output path reminder
+      process.stderr.write(dim(`Output: ${session.outputPath}\n`));
 
       // Ask user for follow-up
       const followUp = await input({
