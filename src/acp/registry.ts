@@ -14,11 +14,6 @@ export interface ACPAgent {
 const KNOWN_AGENTS: Omit<ACPAgent, 'available'>[] = [
   { name: 'claude', bin: 'claude-agent-acp', displayName: 'Claude Code' },
   { name: 'codex', bin: 'codex-acp', displayName: 'Codex' },
-  { name: 'gemini', bin: 'gemini', displayName: 'Gemini CLI' },
-  { name: 'opencode', bin: 'opencode', displayName: 'OpenCode' },
-  { name: 'goose', bin: 'goose', displayName: 'Goose' },
-  { name: 'kimi', bin: 'kimi', displayName: 'Kimi CLI' },
-  { name: 'augment', bin: 'augment', displayName: 'Augment Code' },
 ];
 
 function isBinAvailable(bin: string): boolean {
