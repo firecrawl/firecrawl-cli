@@ -641,7 +641,7 @@ export async function runInteractiveAgent(options: {
     ];
 
     const chosen = await select({
-      message: 'Agent',
+      message: 'Harness',
       choices: agentChoices,
       default: defaultAgent,
     });
