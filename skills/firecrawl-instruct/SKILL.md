@@ -1,7 +1,7 @@
 ---
 name: firecrawl-instruct
 description: |
-  Interact with scraped pages in a live browser session — click, fill forms, navigate, and extract data using natural language or code. Use this skill when the user needs to interact with a webpage, log into a site, click buttons, fill forms, navigate multi-step flows, handle pagination, or when regular scraping fails because content requires JavaScript interaction. Triggers on "browser", "click", "fill out the form", "log in to", "paginated", "infinite scroll", "interact with the page", or "scrape failed".
+  Control a live browser session on any scraped page — click buttons, fill forms, navigate flows, and extract data using natural language prompts or code. Replaces the old firecrawl-browser command. Use when the user needs to interact with a webpage beyond simple scraping: logging into a site, submitting forms, clicking through pagination, handling infinite scroll, navigating multi-step checkout or wizard flows, or when a regular scrape failed because content is behind JavaScript interaction. Also useful for authenticated scraping via profiles. Triggers on "browser", "instruct", "click", "fill out the form", "log in to", "sign in", "submit", "paginated", "next page", "infinite scroll", "interact with the page", "navigate to", "open a session", or "scrape failed".
 allowed-tools:
   - Bash(firecrawl *)
   - Bash(npx firecrawl *)
