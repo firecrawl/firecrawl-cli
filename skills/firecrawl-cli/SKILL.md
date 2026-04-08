@@ -71,16 +71,30 @@ For detailed command reference, run `firecrawl <command> --help`.
 
 ## When to Load References
 
-- **Searching the web or finding sources first** -> [firecrawl-search](../firecrawl-search/SKILL.md)
-- **Scraping a known URL** -> [firecrawl-scrape](../firecrawl-scrape/SKILL.md)
-- **Finding URLs on a known site** -> [firecrawl-map](../firecrawl-map/SKILL.md)
-- **Bulk extraction from a docs section or site** -> [firecrawl-crawl](../firecrawl-crawl/SKILL.md)
-- **AI-powered structured extraction from complex sites** -> [firecrawl-agent](../firecrawl-agent/SKILL.md)
-- **Clicks, forms, login, pagination, or post-scrape browser actions** -> [firecrawl-instruct](../firecrawl-instruct/SKILL.md)
-- **Downloading a site to local files** -> [firecrawl-download](../firecrawl-download/SKILL.md)
+- **Searching the web or finding sources first** -> [references/search.md](references/search.md)
+- **Scraping a known URL** -> [references/scrape.md](references/scrape.md)
+- **Finding URLs on a known site** -> [references/map.md](references/map.md)
+- **Bulk extraction from a docs section or site** -> [references/crawl.md](references/crawl.md)
+- **AI-powered structured extraction from complex sites** -> [references/agent.md](references/agent.md)
+- **Clicks, forms, login, pagination, or post-scrape browser actions** -> [references/interact.md](references/interact.md)
+- **Downloading a site to local files** -> [references/download.md](references/download.md)
 - **Install, auth, or setup problems** -> [rules/install.md](rules/install.md)
 - **Output handling and safe file-reading patterns** -> [rules/security.md](rules/security.md)
 - **Integrating Firecrawl into an app, adding `FIRECRAWL_API_KEY` to `.env`, or choosing endpoint usage in product code** -> install the Firecrawl skills repo with `npx skills add firecrawl/skills`
+
+## References
+
+| Need | Reference |
+| ---- | --------- |
+| Search the web or discover sources | [references/search.md](references/search.md) |
+| Scrape a known URL | [references/scrape.md](references/scrape.md) |
+| Find URLs on a known site | [references/map.md](references/map.md) |
+| Crawl a site section | [references/crawl.md](references/crawl.md) |
+| Extract structured data with AI | [references/agent.md](references/agent.md) |
+| Interact with a page after scraping | [references/interact.md](references/interact.md) |
+| Download a site to local files | [references/download.md](references/download.md) |
+| Fix install or auth issues | [rules/install.md](rules/install.md) |
+| Review output-handling guidance | [rules/security.md](rules/security.md) |
 
 ## Output & Organization
 
