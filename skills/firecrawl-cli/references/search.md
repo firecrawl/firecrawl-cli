@@ -1,21 +1,6 @@
----
-name: firecrawl-search
-description: |
-  Web search with full page content extraction. Use this skill whenever the user asks to search the web, find articles, research a topic, look something up, find recent news, discover sources, or says "search for", "find me", "look up", "what are people saying about", or "find articles about". Returns real search results with optional full-page markdown — not just snippets. Provides capabilities beyond Claude's built-in WebSearch.
-allowed-tools:
-  - Bash(firecrawl *)
-  - Bash(npx firecrawl *)
----
+# Search Reference
 
-# firecrawl search
-
-Web search with optional content scraping. Returns search results as JSON, optionally with full page content.
-
-## When to use
-
-- You don't have a specific URL yet
-- You need to find pages, answer questions, or discover sources
-- First step in the [workflow escalation pattern](firecrawl-cli): search → scrape → map → crawl → interact
+Use this when you do not have a specific URL yet and need to find pages, answer questions, discover sources, or gather recent results.
 
 ## Quick start
 
@@ -47,13 +32,6 @@ firecrawl search "your query" --sources news --tbs qdr:d -o .firecrawl/news.json
 
 ## Tips
 
-- **`--scrape` fetches full content** — don't re-scrape URLs from search results. This saves credits and avoids redundant fetches.
+- `--scrape` already fetches full page content, so do not re-scrape the same result URLs.
 - Always write results to `.firecrawl/` with `-o` to avoid context window bloat.
-- Use `jq` to extract URLs or titles: `jq -r '.data.web[].url' .firecrawl/search.json`
-- Naming convention: `.firecrawl/search-{query}.json` or `.firecrawl/search-{query}-scraped.json`
-
-## See also
-
-- [firecrawl-scrape](../firecrawl-scrape/SKILL.md) — scrape a specific URL
-- [firecrawl-map](../firecrawl-map/SKILL.md) — discover URLs within a site
-- [firecrawl-crawl](../firecrawl-crawl/SKILL.md) — bulk extract from a site
+- Use `jq -r '.data.web[].url' .firecrawl/search.json` to extract URLs quickly.
