@@ -48,16 +48,14 @@ Quick reference:
 - \`firecrawl scrape <url>\` -- Scrape a page as markdown
 - \`firecrawl map <url>\` -- Discover all URLs on a site
 - \`firecrawl crawl <url>\` -- Crawl an entire site
-- \`firecrawl browser "open <url>"\` -- Cloud browser session
-- \`firecrawl browser "snapshot"\` -- Get page state
-- \`firecrawl browser "click @<ref>"\` -- Click an element
-- \`firecrawl browser "type @<ref> <text>"\` -- Type into an input`;
+- \`firecrawl interact "Click the login button"\` -- Interact with a scraped page
+- \`firecrawl agent "<prompt>"\` -- AI agent for complex extraction`;
 
 export const QA_TOOLS_BLOCK = `## Your Tools -- READ THIS FIRST
 
 Use ONLY \`firecrawl\` for ALL web operations. It is already installed and authenticated. Run firecrawl commands via Bash. Do not use any other tools, skills, plugins, or built-in web features for web access -- only \`firecrawl\`. If the CLI has issues, you may fall back to Firecrawl MCP tools if available.
 
-**First step: run \`firecrawl --help\` and \`firecrawl browser --help\` to see all commands.** Tell each subagent to do the same.
+**First step: run \`firecrawl --help\` to see all available commands.** Tell each subagent to do the same.
 
 ## IMPORTANT: Launch Browser with Live View FIRST
 
