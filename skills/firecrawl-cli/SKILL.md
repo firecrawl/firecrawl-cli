@@ -32,6 +32,13 @@ Must be installed and authenticated. Check with `firecrawl --status`.
 
 If not ready, see [rules/install.md](rules/install.md). For output handling guidelines, see [rules/security.md](rules/security.md).
 
+Before doing real work, verify the setup with one small request:
+
+```bash
+mkdir -p .firecrawl
+firecrawl scrape "https://firecrawl.dev" -o .firecrawl/install-check.md
+```
+
 ```bash
 firecrawl search "query" --scrape --limit 3
 ```

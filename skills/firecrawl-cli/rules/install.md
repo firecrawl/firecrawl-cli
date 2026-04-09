@@ -12,10 +12,18 @@ description: |
 ## Quick Setup (Recommended)
 
 ```bash
-npx -y firecrawl-cli -y
+npx -y firecrawl-cli@latest -y
 ```
 
 This installs `firecrawl-cli` globally, authenticates via browser, and installs all skills.
+
+This setup is safe to re-run when the CLI is missing, stale, or only partially configured.
+
+If `firecrawl` is already installed and you want to update it first:
+
+```bash
+npm update -g firecrawl-cli
+```
 
 Skills are installed globally across all detected coding editors by default.
 
@@ -28,14 +36,25 @@ firecrawl setup skills
 ## Manual Install
 
 ```bash
-npm install -g firecrawl-cli@1.8.0
+npm install -g firecrawl-cli@latest
 ```
 
 ## Verify
 
+First check status:
+
 ```bash
 firecrawl --status
 ```
+
+Then run one small real request to prove install, auth, and output all work:
+
+```bash
+mkdir -p .firecrawl
+firecrawl scrape "https://firecrawl.dev" -o .firecrawl/install-check.md
+```
+
+The install is healthy when both commands succeed.
 
 ## Authentication
 
@@ -59,5 +78,5 @@ Ask the user how they'd like to authenticate:
 If `firecrawl` is not found after installation:
 
 1. Ensure npm global bin is in PATH
-2. Try: `npx firecrawl-cli@1.8.0 --version`
-3. Reinstall: `npm install -g firecrawl-cli@1.8.0`
+2. Try: `npx firecrawl-cli@latest --version`
+3. Reinstall: `npm install -g firecrawl-cli@latest`
