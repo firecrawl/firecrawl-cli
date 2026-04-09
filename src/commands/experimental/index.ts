@@ -139,80 +139,12 @@ Pass -y to auto-approve all tool permissions.
 
 // ─── Passthrough (natural language fallback) ─────────────────────────────────
 
-const BROWSER_KEYWORDS = [
-  'browser',
-  'session',
-  'profile',
-  'click',
-  'snapshot',
-  'navigate',
-  'login',
-  'signup',
-  'sign up',
-  'fill',
-  'form',
-  'interact',
-  'automate',
-  'playwright',
-  'cdp',
-  'cloud browser',
-  'cart',
-  'add to cart',
-  'wishlist',
-  'checkout',
-  'purchase',
-  'buy',
-  'order',
-  'book',
-  'reserve',
-  'amazon',
-  'account',
-];
-
-function isBrowserRelated(text: string): boolean {
-  const lower = text.toLowerCase();
-  return BROWSER_KEYWORDS.some((kw) => lower.includes(kw));
-}
-
-function buildPassthroughSystemPrompt(userInput: string): string {
-  const browserSpecific = isBrowserRelated(userInput);
-
-  const browserBlock = browserSpecific
-    ? `\n\n**Since this task involves browser interactions**, first launch a browser session with live view so the user can watch:
-
-\`\`\`bash
-firecrawl browser launch-session --json
-\`\`\`
-
-Show the **Live View URL** to the user immediately so they can open it and watch you work in real-time.
-
-Then run \`firecrawl browser --help\` to understand sessions, profiles, execute commands, and all browser capabilities.
-
-### Profiles (persistent Chrome profiles -- NOT sessions)
-
-A profile is a persistent Chrome profile (cookies, login state, localStorage). It is NOT a session -- it exists independently and survives across sessions.
-
-- **Use a profile:** \`firecrawl browser "open <url>" --profile <name>\` -- creates a new session using the saved Chrome profile data (cookies, auth, etc.)
-- **DO NOT** run \`firecrawl browser list\` to look for profiles. Just use \`--profile <name>\` directly.
-- After the first \`open\` with \`--profile\`, subsequent browser commands don't need the flag.
-
-If the user mentions "my amazon profile" or "amazon account", just run:
-\`firecrawl browser "open https://www.amazon.com" --profile amazon\`
-
-### Browser commands
-- \`firecrawl browser "open <url>"\` -- Navigate (auto-launches session if needed)
-- \`firecrawl browser "snapshot"\` -- Get page state (accessibility tree)
-- \`firecrawl browser "click @<ref>"\` -- Click an element
-- \`firecrawl browser "type @<ref> <text>"\` -- Type into an input
-- \`firecrawl browser "scrape"\` -- Get full page content as markdown
-- \`firecrawl browser "scroll down"\` / \`"scroll up"\` -- Scroll`
-    : '';
-
+function buildPassthroughSystemPrompt(_userInput: string): string {
   return `You are a Firecrawl power user. You have the full Firecrawl CLI at your disposal to accomplish any web task the user describes.
 
 ## First Steps
 
-**Run \`firecrawl --help\` to see all available commands and capabilities.** This is critical -- read the output carefully before proceeding.${browserBlock}
+**Run \`firecrawl --help\` to see all available commands and capabilities.** This is critical -- read the output carefully before proceeding.
 
 Then run \`firecrawl <command> --help\` for whichever specific commands you need.
 
@@ -226,11 +158,7 @@ Quick reference:
 - \`firecrawl scrape <url> --format html\` -- Scrape as HTML
 - \`firecrawl map <url>\` -- Discover all URLs on a site
 - \`firecrawl crawl <url>\` -- Crawl an entire site
-- \`firecrawl download <url>\` -- Download a site into .firecrawl/
-- \`firecrawl browser "open <url>"\` -- Cloud browser session
-- \`firecrawl browser "snapshot"\` -- Get page state
-- \`firecrawl browser "click @<ref>"\` -- Click an element
-- \`firecrawl browser "type @<ref> <text>"\` -- Type into an input
+- \`firecrawl interact "Click the login button"\` -- Interact with a scraped page
 - \`firecrawl agent "<prompt>"\` -- AI agent for complex extraction
 
 ## Guidelines

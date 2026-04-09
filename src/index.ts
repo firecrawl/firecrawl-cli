@@ -326,8 +326,7 @@ function createDownloadCommand(): Command {
   return downloadCmd;
 }
 
-// Add download command to main program
-program.addCommand(createDownloadCommand());
+// download command is registered under 'experimental' below
 
 /**
  * Create and configure the crawl command
@@ -1182,18 +1181,31 @@ Examples:
   return interactCmd;
 }
 
-// Add crawl, map, search, agent, browser, and interact commands to main program
+// Add core commands to main program
 program.addCommand(createCrawlCommand());
 program.addCommand(createMapCommand());
 program.addCommand(createSearchCommand());
 program.addCommand(createAgentCommand());
-program.addCommand(createBrowserCommand());
 program.addCommand(createInteractCommand());
 
-// Experimental: AI workflow commands
-program.addCommand(createClaudeCommand());
-program.addCommand(createCodexCommand());
-program.addCommand(createOpenCodeCommand());
+// Hidden: deprecated browser command (still works, just not in --help)
+program.addCommand(createBrowserCommand(), { hidden: true });
+
+// Experimental: download, AI workflow commands
+const experimental = new Command('experimental')
+  .description('Experimental commands (download, AI workflows)')
+  .alias('x')
+  .addHelpText(
+    'after',
+    `
+Shorthand: "firecrawl x" is an alias for "firecrawl experimental".
+`
+  );
+experimental.addCommand(createDownloadCommand());
+experimental.addCommand(createClaudeCommand());
+experimental.addCommand(createCodexCommand());
+experimental.addCommand(createOpenCodeCommand());
+program.addCommand(experimental);
 
 program
   .command('config')

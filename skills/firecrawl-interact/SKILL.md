@@ -1,13 +1,13 @@
 ---
-name: firecrawl-instruct
+name: firecrawl-interact
 description: |
-  Control and interact with a live browser session on any scraped page — click buttons, fill forms, navigate flows, and extract data using natural language prompts or code. Replaces the old firecrawl-browser command. Use when the user needs to interact with a webpage beyond simple scraping: logging into a site, submitting forms, clicking through pagination, handling infinite scroll, navigating multi-step checkout or wizard flows, or when a regular scrape failed because content is behind JavaScript interaction. Also useful for authenticated scraping via profiles. Triggers on "browser", "instruct", "click", "fill out the form", "log in to", "sign in", "submit", "paginated", "next page", "infinite scroll", "interact with the page", "navigate to", "open a session", or "scrape failed".
+  Control and interact with a live browser session on any scraped page — click buttons, fill forms, navigate flows, and extract data using natural language prompts or code. Use when the user needs to interact with a webpage beyond simple scraping: logging into a site, submitting forms, clicking through pagination, handling infinite scroll, navigating multi-step checkout or wizard flows, or when a regular scrape failed because content is behind JavaScript interaction. Also useful for authenticated scraping via profiles. Triggers on "interact", "click", "fill out the form", "log in to", "sign in", "submit", "paginated", "next page", "infinite scroll", "interact with the page", "navigate to", "open a session", or "scrape failed".
 allowed-tools:
   - Bash(firecrawl *)
   - Bash(npx firecrawl *)
 ---
 
-# firecrawl instruct
+# firecrawl interact
 
 Interact with scraped pages in a live browser session. Scrape a page first, then use natural language prompts or code to click, fill forms, navigate, and extract data.
 
@@ -16,8 +16,8 @@ Interact with scraped pages in a live browser session. Scrape a page first, then
 - Content requires interaction: clicks, form fills, pagination, login
 - `scrape` failed because content is behind JavaScript interaction
 - You need to navigate a multi-step flow
-- Last resort in the [workflow escalation pattern](firecrawl-cli): search → scrape → map → crawl → **instruct**
-- **Never use instruct for web searches** — use `search` instead
+- Last resort in the [workflow escalation pattern](firecrawl-cli): search → scrape → map → crawl → **interact**
+- **Never use interact for web searches** — use `search` instead
 
 ## Quick start
 
@@ -78,6 +78,6 @@ firecrawl scrape "https://app.example.com" --profile my-app --no-save-changes
 
 ## See also
 
-- [firecrawl-scrape](../firecrawl-scrape/SKILL.md) — try scrape first, escalate to instruct only when needed
-- [firecrawl-search](../firecrawl-search/SKILL.md) — for web searches (never use instruct for searching)
+- [firecrawl-scrape](../firecrawl-scrape/SKILL.md) — try scrape first, escalate to interact only when needed
+- [firecrawl-search](../firecrawl-search/SKILL.md) — for web searches (never use interact for searching)
 - [firecrawl-agent](../firecrawl-agent/SKILL.md) — AI-powered extraction (less manual control)

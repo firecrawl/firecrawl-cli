@@ -53,5 +53,5 @@ firecrawl agent "get feature list" --urls "<url>" --wait -o .firecrawl/features.
 ## See also
 
 - [firecrawl-scrape](../firecrawl-scrape/SKILL.md) — simpler single-page extraction
-- [firecrawl-instruct](../firecrawl-instruct/SKILL.md) — scrape + interact for manual page interaction (more control)
+- [firecrawl-interact](../firecrawl-interact/SKILL.md) — scrape + interact for manual page interaction (more control)
 - [firecrawl-crawl](../firecrawl-crawl/SKILL.md) — bulk extraction without AI
