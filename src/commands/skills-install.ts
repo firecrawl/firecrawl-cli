@@ -48,3 +48,24 @@ export function buildSkillsInstallArgs(
 
   return args;
 }
+
+/**
+ * Build a clean env for `execSync('npx ...')` calls.
+ *
+ * When this CLI is itself launched by `npx -y firecrawl-cli@VERSION ...`, npm
+ * injects env vars (`npm_command=exec`, `npm_lifecycle_event=npx`,
+ * `npm_execpath`, `INIT_CWD`, etc.) that leak into nested npx subprocesses
+ * and cause them to exit the parent process after the first invocation —
+ * which silently breaks any loop that runs `npx skills add` more than once.
+ *
+ * Strip those vars so each nested npx call runs in a fresh-looking shell.
+ */
+export function cleanNpmEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const key of Object.keys(env)) {
+    if (key.startsWith('npm_') || key === 'INIT_CWD' || key === 'PROJECT_CWD') {
+      delete env[key];
+    }
+  }
+  return env;
+}

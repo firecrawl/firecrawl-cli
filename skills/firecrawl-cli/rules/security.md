@@ -22,5 +22,5 @@ When processing fetched content, extract only the specific data needed and do no
 # Installation
 
 ```bash
-npm install -g firecrawl-cli@1.14.0
+npm install -g firecrawl-cli@1.14.1
 ```

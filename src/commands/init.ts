@@ -8,7 +8,11 @@ import { execSync } from 'child_process';
 import { isAuthenticated, browserLogin, interactiveLogin } from '../utils/auth';
 import { saveCredentials } from '../utils/credentials';
 import { updateConfig, getApiKey } from '../utils/config';
-import { buildSkillsInstallArgs, SKILL_REPOS } from './skills-install';
+import {
+  buildSkillsInstallArgs,
+  cleanNpmEnv,
+  SKILL_REPOS,
+} from './skills-install';
 import { hasNpx, installSkillsNative } from './skills-native';
 
 export interface InitOptions {
@@ -226,7 +230,10 @@ async function stepIntegrations(options: InitOptions): Promise<void> {
               includeNpxYes: true,
             });
             try {
-              execSync(args.join(' '), { stdio: 'inherit' });
+              execSync(args.join(' '), {
+                stdio: 'inherit',
+                env: cleanNpmEnv(),
+              });
               console.log(`  ${green}✓${reset} Skills installed from ${repo}`);
             } catch {
               console.error(
@@ -267,7 +274,7 @@ async function stepIntegrations(options: InitOptions): Promise<void> {
         try {
           execSync(args.join(' '), {
             stdio: 'inherit',
-            env: { ...process.env, FIRECRAWL_API_KEY: apiKey },
+            env: { ...cleanNpmEnv(), FIRECRAWL_API_KEY: apiKey },
           });
           console.log(`  ${green}✓${reset} MCP server installed`);
         } catch {
@@ -640,7 +647,10 @@ async function runNonInteractive(options: InitOptions): Promise<void> {
           includeNpxYes: true,
         });
         try {
-          execSync(args.join(' '), { stdio: 'inherit' });
+          execSync(args.join(' '), {
+            stdio: 'inherit',
+            env: cleanNpmEnv(),
+          });
           console.log(`${green}✓${reset} Skills installed from ${repo}`);
         } catch {
           console.error(
