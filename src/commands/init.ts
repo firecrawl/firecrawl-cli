@@ -200,7 +200,10 @@ function printNextSteps(skillCount: number | null): void {
   );
   console.log('');
   console.log(
-    `  ${dim}In your AI agent, just ask to ${reset}${bold}"start building"${reset}${dim} — the build skills auto-load.${reset}`
+    `  ${dim}In your AI agent, just describe what you want to build or integrate.${reset}`
+  );
+  console.log(
+    `  ${dim}Example:${reset} ${bold}"Build a Next.js app that scrapes Hacker News"${reset}`
   );
   console.log('');
 }
