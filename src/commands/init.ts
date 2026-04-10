@@ -203,7 +203,7 @@ function printNextSteps(skillCount: number | null): void {
     `  ${dim}In your AI agent, just describe what you want to build or integrate.${reset}`
   );
   console.log(
-    `  ${dim}Example:${reset} ${bold}"Build a Next.js app that scrapes Hacker News"${reset}`
+    `  ${dim}Example:${reset} ${bold}"I want to use firecrawl to build an onboarding flow for my insurance company"${reset}`
   );
   console.log('');
 }
