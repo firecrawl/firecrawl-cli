@@ -210,7 +210,7 @@ function printNextSteps(skillCount: number | null): void {
     `    ${arrow} ${bold}Search${reset}    "Search for the latest stories in AI"      ${dim}firecrawl search "latest stories in AI"${reset}`
   );
   console.log(
-    `    ${arrow} ${bold}Interact${reset}  "Extract the pricing tiers as JSON"        ${dim}firecrawl interact "extract pricing tiers as JSON"${reset}`
+    `    ${arrow} ${bold}Interact${reset}  "Go to amazon.com, search keyboards, filter by Prime"  ${dim}firecrawl interact "search keyboards, filter by Prime"${reset}`
   );
   console.log('');
   console.log(
