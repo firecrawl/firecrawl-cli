@@ -198,6 +198,9 @@ function printNextSteps(): void {
   );
   console.log('');
   console.log(
+    `  ${dim}Want MCP for editor integration? Run${reset} ${bold}firecrawl setup mcp${reset}`
+  );
+  console.log(
     `  ${dim}Run${reset} ${bold}firecrawl --help${reset} ${dim}for the full command reference.${reset}`
   );
   console.log('');
