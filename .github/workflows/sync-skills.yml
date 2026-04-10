@@ -62,5 +62,8 @@ jobs:
               --base main \
               --head "$BRANCH")
             echo "Created PR: $PR_URL"
-            gh pr merge --repo firecrawl/firecrawl-cursor-plugin --auto --merge --delete-branch "$PR_URL"
+            # Merge immediately. --auto requires branch protection with
+            # required checks on the target repo, which firecrawl-cursor-plugin
+            # doesn't have, and there's nothing to wait for on a sync PR anyway.
+            gh pr merge --repo firecrawl/firecrawl-cursor-plugin --merge --delete-branch "$PR_URL"
           fi
