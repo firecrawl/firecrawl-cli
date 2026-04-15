@@ -81,7 +81,15 @@ function loadExternalManifestSync(source: string): {
   sourceRoot: string;
 } {
   const tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'fc-agent-'));
-  cloneRepo(source, tmpDir);
+  try {
+    cloneRepo(source, tmpDir);
+  } catch {
+    // Default remote is public once launched; until then, gh auth covers
+    // insiders and everyone else sees this hint.
+    throw new Error(
+      `Could not clone ${source}. If the repo isn't public yet, authenticate with \`gh auth login\` or set GITHUB_TOKEN. Otherwise, check your network / git install.`
+    );
+  }
   const manifestPath = path.join(tmpDir, 'agent-manifest.json');
   if (!fs.existsSync(manifestPath)) {
     // Upstream currently ships the manifest at `.internal/cli/agent-manifest.json`.
