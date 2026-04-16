@@ -151,7 +151,7 @@ export async function executeCrawl(
           }
 
           // Check timeout
-          if (timeoutMs && Date.now() - startTime > timeoutMs) {
+          if (timeoutMs !== undefined && Date.now() - startTime > timeoutMs) {
             process.stderr.write('\n');
             return {
               success: false,
