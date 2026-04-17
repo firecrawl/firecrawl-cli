@@ -19,6 +19,10 @@ import { handleMapCommand } from './commands/map';
 import { handleSearchCommand } from './commands/search';
 import { handleAgentCommand } from './commands/agent';
 import {
+  runInteractiveAgent,
+  runHeadlessAgent,
+} from './commands/agent-interactive';
+import {
   handleBrowserLaunch,
   handleBrowserExecute,
   handleBrowserList,
@@ -642,8 +646,23 @@ function createAgentCommand(): Command {
   const agentCmd = new Command('agent')
     .description('Run an AI agent to extract data from the web')
     .argument(
-      '<prompt-or-job-id>',
+      '[prompt-or-job-id]',
       'Natural language prompt describing data to extract, or job ID to check status'
+    )
+    .option(
+      '-i, --interactive',
+      'Interactive mode: detect ACP providers, gather data with local agent',
+      false
+    )
+    .option(
+      '--provider <name>',
+      'ACP provider to use (claude, codex, opencode)'
+    )
+    .option('--session <id>', 'Resume an existing interactive session')
+    .option('-l, --list', 'List past agent sessions', false)
+    .option(
+      '--format <format>',
+      'Output format for interactive mode (csv, json, report)'
     )
     .option('--urls <urls>', 'Comma-separated URLs to focus extraction on')
     .option(
@@ -687,9 +706,47 @@ function createAgentCommand(): Command {
     .option('-o, --output <path>', 'Output file path (default: stdout)')
     .option('--json', 'Output as JSON format', false)
     .option('--pretty', 'Pretty print JSON output', false)
+    .option('-y, --yes', 'Auto-approve all tool permissions', false)
+    .option(
+      '--api',
+      'Use Firecrawl API agent instead of local ACP agent',
+      false
+    )
     .action(async (promptOrJobId, options) => {
+      // List past sessions
+      if (options.list) {
+        const { listAgentSessions } =
+          await import('./commands/agent-interactive');
+        await listAgentSessions();
+        return;
+      }
+
+      // Interactive mode: no prompt, or -i flag, or --session
+      const isInteractive =
+        !promptOrJobId || options.interactive || options.session;
+
+      if (isInteractive) {
+        await runInteractiveAgent({
+          provider: options.provider,
+          session: options.session,
+          format: options.format,
+          yes: options.yes,
+        });
+        return;
+      }
+
       // Auto-detect if it's a job ID (UUID format)
       const isStatusCheck = options.status || isJobId(promptOrJobId);
+
+      // Headless ACP mode: prompt provided, not a job ID, not --api
+      if (!isStatusCheck && !options.api) {
+        await runHeadlessAgent({
+          prompt: promptOrJobId,
+          format: options.format || 'json',
+          provider: options.provider,
+        });
+        return;
+      }
 
       // Parse URLs
       let urls: string[] | undefined;
