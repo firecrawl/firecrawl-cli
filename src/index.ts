@@ -16,6 +16,7 @@ import { configure, viewConfig } from './commands/config';
 import { handleCreditUsageCommand } from './commands/credit-usage';
 import { handleCrawlCommand } from './commands/crawl';
 import { handleMapCommand } from './commands/map';
+import { handleParseCommand } from './commands/parse';
 import { handleSearchCommand } from './commands/search';
 import { handleAgentCommand } from './commands/agent';
 import {
@@ -61,6 +62,7 @@ const AUTH_REQUIRED_COMMANDS = [
   'download',
   'crawl',
   'map',
+  'parse',
   'search',
   'agent',
   'browser',
@@ -496,6 +498,97 @@ function createMapCommand(): Command {
     });
 
   return mapCmd;
+}
+
+/**
+ * Create and configure the parse command
+ */
+function createParseCommand(): Command {
+  const parseCmd = new Command('parse')
+    .description(
+      'Parse a local file (HTML, PDF, DOCX, DOC, ODT, RTF, XLSX, XLS) into markdown, HTML, links, JSON, and more. Uses /v2/parse.'
+    )
+    .argument('<file>', 'Path to the local file to parse')
+    .option('-H, --html', 'Output raw HTML (shortcut for --format html)')
+    .option(
+      '-f, --format <formats>',
+      'Output format(s). Multiple formats can be specified with commas (e.g., "markdown,links"). Available: markdown, html, rawHtml, links, images, summary, json, attributes. Single format outputs raw content; multiple formats output JSON.'
+    )
+    .option('--only-main-content', 'Include only main content', false)
+    .option('-S, --summary', 'Output summary (shortcut for --format summary)')
+    .option('--include-tags <tags>', 'Comma-separated list of tags to include')
+    .option('--exclude-tags <tags>', 'Comma-separated list of tags to exclude')
+    .option(
+      '--timeout <ms>',
+      'Timeout in milliseconds for the parse job',
+      parseInt
+    )
+    .option(
+      '-Q, --query <prompt>',
+      'Ask a question about the parsed content (query format)'
+    )
+    .option(
+      '-k, --api-key <key>',
+      'Firecrawl API key (overrides global --api-key)'
+    )
+    .option('--api-url <url>', 'API URL (overrides global --api-url)')
+    .option('-o, --output <path>', 'Output file path (default: stdout)')
+    .option('--json', 'Output as JSON format', false)
+    .option('--pretty', 'Pretty print JSON output', false)
+    .option(
+      '--timing',
+      'Show request timing and other useful information',
+      false
+    )
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ firecrawl parse ./report.pdf
+  $ firecrawl parse ./report.pdf -f markdown,links
+  $ firecrawl parse ./page.html -H
+  $ firecrawl parse ./contract.docx --only-main-content
+  $ firecrawl parse ./report.pdf -Q "What is the total revenue?"
+  $ firecrawl parse ./report.pdf --json --pretty -o report.json
+
+Supported file types: .html, .htm, .pdf, .docx, .doc, .odt, .rtf, .xlsx, .xls
+Max upload size: 50 MB
+`
+    )
+    .action(async (file: string, options) => {
+      let format: string | undefined;
+      if (options.html) {
+        format = 'html';
+      } else if (options.summary) {
+        format = 'summary';
+      } else if (options.format) {
+        format = options.format;
+      }
+
+      const scrapeOptions = parseScrapeOptions({
+        ...options,
+        url: 'file://' + file,
+        format: format ?? 'markdown',
+      });
+
+      await handleParseCommand({
+        file,
+        formats: scrapeOptions.formats,
+        onlyMainContent: scrapeOptions.onlyMainContent,
+        includeTags: scrapeOptions.includeTags,
+        excludeTags: scrapeOptions.excludeTags,
+        timeout: options.timeout,
+        apiKey: options.apiKey,
+        apiUrl: options.apiUrl,
+        output: options.output,
+        pretty: options.pretty,
+        json: options.json,
+        timing: options.timing,
+        query: options.query,
+      });
+    });
+
+  return parseCmd;
 }
 
 /**
@@ -1185,6 +1278,7 @@ Examples:
 // Add core commands to main program
 program.addCommand(createCrawlCommand());
 program.addCommand(createMapCommand());
+program.addCommand(createParseCommand());
 program.addCommand(createSearchCommand());
 program.addCommand(createAgentCommand());
 program.addCommand(createInteractCommand());
