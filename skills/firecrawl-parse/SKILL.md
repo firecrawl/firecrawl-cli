@@ -9,7 +9,7 @@ allowed-tools:
 
 # firecrawl parse
 
-Turn a local document into clean markdown on disk. Supports **PDF, DOCX, DOC, ODT, RTF, XLSX, XLS, HTML**.
+Turn a local document into clean markdown on disk. Supports **PDF, DOCX, DOC, ODT, RTF, XLSX, XLS, HTML/HTM/XHTML**.
 
 ## When to use
 
@@ -46,6 +46,7 @@ Then `head`, `grep`, or incrementally read the file — don't load the whole thi
 | `-o, --output <path>`  | Output file path — **always use this**  |
 | `-f, --format <fmt>`   | `markdown` (default), `html`, `summary` |
 | `--only-main-content`  | Strip boilerplate                       |
+| `--timeout <ms>`       | Timeout for the parse job               |
 | `--timing`             | Show request duration                   |
 
 ## Tips
