@@ -121,6 +121,6 @@ export function parseScrapeOptions(options: any): ScrapeOptions {
     location,
     query: options.query,
     profile,
-    lockdownMode: options.lockdownMode,
+    lockdown: options.lockdown,
   };
 }

@@ -63,7 +63,7 @@ export interface ScrapeOptions {
     saveChanges?: boolean;
   };
   /** Enable lockdown mode for the scrape */
-  lockdownMode?: boolean;
+  lockdown?: boolean;
 }
 
 export interface ScrapeResult {

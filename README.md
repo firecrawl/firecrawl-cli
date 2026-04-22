@@ -152,7 +152,7 @@ firecrawl scrape https://firecrawl.dev https://firecrawl.dev/blog https://docs.f
 | `--include-tags <tags>`    | Only include specific HTML tags                         |
 | `--exclude-tags <tags>`    | Exclude specific HTML tags                              |
 | `--max-age <milliseconds>` | Maximum age of cached content in milliseconds           |
-| `--lockdown-mode`          | Enable lockdown mode for the scrape                     |
+| `--lockdown`               | Enable lockdown mode for the scrape                     |
 | `-o, --output <path>`      | Save output to file                                     |
 | `--json`                   | Output as JSON format                                   |
 | `--pretty`                 | Pretty print JSON output                                |
