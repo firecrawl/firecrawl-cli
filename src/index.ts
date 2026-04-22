@@ -173,6 +173,7 @@ function createScrapeCommand(): Command {
       '--no-save-changes',
       'Load existing profile data without saving changes (default: saves changes)'
     )
+    .option('--lockdown-mode', 'Enable lockdown mode for the scrape', false)
 
     .action(async (positionalArgs, options) => {
       // Collect URLs from positional args and --url option
@@ -288,6 +289,7 @@ function createDownloadCommand(): Command {
       '--languages <codes>',
       'Comma-separated language codes for scraping (e.g., en,es)'
     )
+    .option('--lockdown-mode', 'Enable lockdown mode for the scrape', false)
     .option('-y, --yes', 'Skip confirmation prompt', false)
     .option(
       '-k, --api-key <key>',
