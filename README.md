@@ -11,7 +11,7 @@ npm install -g firecrawl-cli
 Or set up everything in one command (install CLI globally, authenticate, and add skills across all detected coding editors):
 
 ```bash
-npx -y firecrawl-cli@1.14.8 init -y --browser
+npx -y firecrawl-cli@1.16.1 init -y --browser
 ```
 
 - `-y` runs setup non-interactively
@@ -153,6 +153,11 @@ firecrawl scrape https://firecrawl.dev https://firecrawl.dev/blog https://docs.f
 | `--exclude-tags <tags>`    | Exclude specific HTML tags                              |
 | `--max-age <milliseconds>` | Maximum age of cached content in milliseconds           |
 | `--lockdown`               | Enable lockdown mode for the scrape                     |
+| `--schema <json>`          | JSON schema for structured extraction                   |
+| `--schema-file <path>`     | Path to JSON schema file for structured extraction      |
+| `--actions <json>`         | JSON actions array to run during scrape                 |
+| `--actions-file <path>`    | Path to JSON actions file                               |
+| `--proxy <proxy>`          | Proxy mode for scraping (for example, `auto`, `basic`)  |
 | `-o, --output <path>`      | Save output to file                                     |
 | `--json`                   | Output as JSON format                                   |
 | `--pretty`                 | Pretty print JSON output                                |
@@ -353,23 +358,27 @@ firecrawl crawl https://example.com --limit 100 --max-depth 3
 
 #### Crawl Options
 
-| Option                      | Description                              |
-| --------------------------- | ---------------------------------------- |
-| `--wait`                    | Wait for crawl to complete               |
-| `--progress`                | Show progress while waiting              |
-| `--limit <n>`               | Maximum pages to crawl                   |
-| `--max-depth <n>`           | Maximum crawl depth                      |
-| `--include-paths <paths>`   | Only crawl matching paths                |
-| `--exclude-paths <paths>`   | Skip matching paths                      |
-| `--sitemap <mode>`          | `include`, `skip`, or `only`             |
-| `--allow-subdomains`        | Include subdomains                       |
-| `--allow-external-links`    | Follow external links                    |
-| `--crawl-entire-domain`     | Crawl entire domain                      |
-| `--ignore-query-parameters` | Treat URLs with different params as same |
-| `--delay <ms>`              | Delay between requests                   |
-| `--max-concurrency <n>`     | Max concurrent requests                  |
-| `--timeout <seconds>`       | Timeout when waiting                     |
-| `--poll-interval <seconds>` | Status check interval                    |
+| Option                         | Description                              |
+| ------------------------------ | ---------------------------------------- |
+| `--wait`                       | Wait for crawl to complete               |
+| `--progress`                   | Show progress while waiting              |
+| `--limit <n>`                  | Maximum pages to crawl                   |
+| `--max-depth <n>`              | Maximum crawl depth                      |
+| `--include-paths <paths>`      | Only crawl matching paths                |
+| `--exclude-paths <paths>`      | Skip matching paths                      |
+| `--sitemap <mode>`             | `include`, `skip`, or `only`             |
+| `--allow-subdomains`           | Include subdomains                       |
+| `--allow-external-links`       | Follow external links                    |
+| `--crawl-entire-domain`        | Crawl entire domain                      |
+| `--ignore-query-parameters`    | Treat URLs with different params as same |
+| `--delay <ms>`                 | Delay between requests                   |
+| `--max-concurrency <n>`        | Max concurrent requests                  |
+| `--scrape-options <json>`      | JSON scrape options passed to each page  |
+| `--scrape-options-file <path>` | Path to scrape options JSON file         |
+| `--webhook <url-or-json>`      | Webhook URL or configuration             |
+| `--cancel`                     | Cancel an active crawl job by job ID     |
+| `--timeout <seconds>`          | Timeout when waiting                     |
+| `--poll-interval <seconds>`    | Status check interval                    |
 
 #### Examples
 
@@ -440,7 +449,9 @@ firecrawl agent <job-id> --wait
 | `--schema <json>`           | JSON schema for structured output (inline JSON string)        |
 | `--schema-file <path>`      | Path to JSON schema file for structured output                |
 | `--max-credits <number>`    | Maximum credits to spend (job fails if exceeded)              |
+| `--webhook <url-or-json>`   | Webhook URL or configuration                                  |
 | `--status`                  | Check status of existing agent job                            |
+| `--cancel`                  | Cancel an active agent job by job ID                          |
 | `--wait`                    | Wait for agent to complete before returning results           |
 | `--poll-interval <seconds>` | Polling interval in seconds when waiting (default: 5)         |
 | `--timeout <seconds>`       | Timeout in seconds when waiting (default: no timeout)         |
@@ -580,7 +591,7 @@ firecrawl --status
 ```
 
 ```
-  🔥 firecrawl cli v1.14.8
+  🔥 firecrawl cli v1.16.1
 
   ● Authenticated via stored credentials
   Concurrency: 0/100 jobs (parallel scrape limit)
