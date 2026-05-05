@@ -57,6 +57,12 @@ export interface ScrapeOptions {
   location?: ScrapeLocation;
   /** Question to ask about the page content (query format) */
   query?: string;
+  /** JSON schema for json format */
+  schema?: Record<string, unknown>;
+  /** Actions to run during scrape */
+  actions?: Record<string, unknown>[];
+  /** Proxy mode */
+  proxy?: string;
   /** Persistent browser profile for maintaining state across scrapes */
   profile?: {
     name: string;

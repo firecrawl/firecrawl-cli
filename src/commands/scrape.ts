@@ -80,13 +80,20 @@ export async function executeScrape(
     formats.push({ type: 'query', prompt: options.query } as any);
   }
 
+  const resolvedFormats = formats.map((format) => {
+    if (format === 'json' && options.schema) {
+      return { type: 'json', schema: options.schema } as FormatOption;
+    }
+    return format;
+  });
+
   // If no formats specified, default to markdown
   if (formats.length === 0) {
-    formats.push('markdown');
+    resolvedFormats.push('markdown');
   }
 
   const scrapeParams: Record<string, unknown> = {
-    formats,
+    formats: resolvedFormats,
     integration: 'cli',
   };
 
@@ -116,6 +123,14 @@ export async function executeScrape(
 
   if (options.profile) {
     scrapeParams.profile = options.profile;
+  }
+
+  if (options.actions) {
+    scrapeParams.actions = options.actions;
+  }
+
+  if (options.proxy) {
+    scrapeParams.proxy = options.proxy;
   }
 
   if (options.lockdown) {

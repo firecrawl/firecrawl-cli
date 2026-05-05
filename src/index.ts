@@ -6,6 +6,7 @@
  */
 
 import { Command } from 'commander';
+import { readFileSync } from 'fs';
 import {
   handleScrapeCommand,
   handleMultiScrapeCommand,
@@ -46,6 +47,7 @@ import { ensureAuthenticated, printBanner } from './utils/auth';
 import packageJson from '../package.json';
 import type { SearchSource, SearchCategory } from './types/search';
 import type { ScrapeFormat } from './types/scrape';
+import type { AgentWebhookConfig } from '@mendable/firecrawl-js';
 import {
   createClaudeCommand,
   createCodexCommand,
@@ -69,6 +71,195 @@ const AUTH_REQUIRED_COMMANDS = [
   'interact',
   'credit-usage',
 ];
+
+const commandSet = new Set<string>([]);
+
+function collectTopLevelCommands(): void {
+  commandSet.clear();
+  for (const command of program.commands) {
+    commandSet.add(command.name());
+    for (const alias of command.aliases()) {
+      commandSet.add(alias);
+    }
+  }
+}
+
+function parseJsonInput(raw: string, label: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    throw new Error(
+      `Invalid JSON in ${label}: ${error instanceof Error ? error.message : 'Unable to parse JSON'}`
+    );
+  }
+}
+
+function parseJsonFromFile(filePath: string, label: string): unknown {
+  try {
+    const content = readFileSync(filePath, 'utf-8');
+    return parseJsonInput(content, `${label} file`);
+  } catch (error: any) {
+    if (error?.code === 'ENOENT') {
+      throw new Error(`Could not read ${label} file: ${filePath}`);
+    }
+    if (error instanceof SyntaxError) {
+      throw new Error(`Invalid JSON in ${label} file: ${filePath}`);
+    }
+    throw error;
+  }
+}
+
+function parseJsonPayload(
+  inline: string | undefined,
+  filePath: string | undefined,
+  label: string
+): unknown | undefined {
+  if (inline !== undefined) {
+    return parseJsonInput(inline, label);
+  }
+
+  if (filePath !== undefined) {
+    return parseJsonFromFile(filePath, label);
+  }
+
+  return undefined;
+}
+
+function parseJsonObject(
+  inline: string | undefined,
+  filePath: string | undefined,
+  label: string
+): Record<string, unknown> | undefined {
+  const parsed = parseJsonPayload(inline, filePath, label);
+  if (parsed === undefined) {
+    return undefined;
+  }
+
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error(`Invalid ${label}: expected a JSON object`);
+  }
+
+  return parsed as Record<string, unknown>;
+}
+
+function parseJsonArray(
+  inline: string | undefined,
+  filePath: string | undefined,
+  label: string
+): Record<string, unknown>[] | undefined {
+  const parsed = parseJsonPayload(inline, filePath, label);
+  if (parsed === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error(`Invalid ${label}: expected a JSON array`);
+  }
+
+  return parsed as Record<string, unknown>[];
+}
+
+function parseWebhookOption(
+  raw: string | undefined,
+  label: string
+): string | Record<string, unknown> | undefined {
+  if (!raw) {
+    return undefined;
+  }
+
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    const parsed = parseJsonPayload(trimmed, undefined, label);
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      throw new Error(`Invalid ${label}: expected webhook object or URL`);
+    }
+    return parsed as Record<string, unknown>;
+  }
+
+  return trimmed;
+}
+
+function parseAgentWebhookOption(
+  raw: string | undefined,
+  label: string
+): string | AgentWebhookConfig | undefined {
+  const webhook = parseWebhookOption(raw, label);
+
+  if (webhook === undefined || typeof webhook === 'string') {
+    return webhook;
+  }
+
+  if (typeof webhook.url !== 'string' || webhook.url.trim().length === 0) {
+    throw new Error(
+      `Invalid ${label}: webhook object requires a non-empty "url"`
+    );
+  }
+
+  return webhook as unknown as AgentWebhookConfig;
+}
+
+function getFirstPositionalArg(args: string[]): string | undefined {
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (!arg || arg === '--') {
+      continue;
+    }
+
+    if (!arg.startsWith('-')) {
+      return arg;
+    }
+
+    // Skip values for known global options and positional flags used before subcommand parsing.
+    if (
+      [
+        '-k',
+        '--api-key',
+        '--api-url',
+        '-u',
+        '--url',
+        '-f',
+        '--format',
+      ].includes(arg) &&
+      args[i + 1] !== undefined
+    ) {
+      i += 1;
+      continue;
+    }
+
+    if (arg.startsWith('--')) {
+      const equalsIndex = arg.indexOf('=');
+      if (equalsIndex !== -1) {
+        continue;
+      }
+
+      // Single-dash option with attached value is rare in commander CLI usage;
+      // safest to ignore as positional-only command parser here.
+      if (args[i + 1] !== undefined && !args[i + 1].startsWith('-')) {
+        i += 1;
+        continue;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function shouldShowGlobalStatus(args: string[]): boolean {
+  const command = getFirstPositionalArg(args);
+  if (!command) {
+    return true;
+  }
+
+  return !commandSet.has(command);
+}
 
 const program = new Command();
 
@@ -176,6 +367,11 @@ function createScrapeCommand(): Command {
       'Load existing profile data without saving changes (default: saves changes)'
     )
     .option('--lockdown', 'Enable lockdown mode for the scrape', false)
+    .option('--schema <json>', 'JSON schema for structured extraction')
+    .option('--schema-file <path>', 'Path to JSON schema file')
+    .option('--actions <json>', 'JSON actions array to run during scrape')
+    .option('--actions-file <path>', 'Path to JSON actions file')
+    .option('--proxy <proxy>', 'Proxy mode for scraping (e.g., auto, basic)')
 
     .action(async (positionalArgs, options) => {
       // Collect URLs from positional args and --url option
@@ -203,6 +399,34 @@ function createScrapeCommand(): Command {
         process.exit(1);
       }
 
+      let schema: Record<string, unknown> | undefined;
+      let actions: Record<string, unknown>[] | undefined;
+
+      try {
+        schema = parseJsonObject(options.schema, undefined, '--schema');
+        actions = parseJsonArray(options.actions, undefined, '--actions');
+      } catch (error) {
+        if (error instanceof Error) {
+          console.error('Error:', error.message);
+          process.exit(1);
+        }
+      }
+
+      if (options.schemaFile) {
+        schema = parseJsonObject(
+          undefined,
+          options.schemaFile,
+          '--schema-file'
+        );
+      }
+      if (options.actionsFile) {
+        actions = parseJsonArray(
+          undefined,
+          options.actionsFile,
+          '--actions-file'
+        );
+      }
+
       // Determine format
       let format: string;
       const positionalFormats = (positionalArgs || []).filter(
@@ -225,11 +449,17 @@ function createScrapeCommand(): Command {
         url: urls[0],
         format,
       });
+      const scrapeOptionsWithExtensions = {
+        ...scrapeOptions,
+        schema,
+        actions,
+        proxy: options.proxy,
+      };
 
       if (urls.length === 1) {
-        await handleScrapeCommand(scrapeOptions);
+        await handleScrapeCommand(scrapeOptionsWithExtensions);
       } else {
-        await handleMultiScrapeCommand(urls, scrapeOptions);
+        await handleMultiScrapeCommand(urls, scrapeOptionsWithExtensions);
       }
     });
 
@@ -387,6 +617,13 @@ function createCrawlCommand(): Command {
       parseInt
     )
     .option(
+      '--scrape-options <json>',
+      'JSON scrape options passed to each page crawl'
+    )
+    .option('--scrape-options-file <path>', 'Path to scrape options JSON file')
+    .option('--webhook <url-or-json>', 'Webhook URL or webhook configuration')
+    .option('--cancel', 'Cancel active crawl job by job ID', false)
+    .option(
       '-k, --api-key <key>',
       'Firecrawl API key (overrides global --api-key)'
     )
@@ -401,6 +638,31 @@ function createCrawlCommand(): Command {
           'Error: URL or job ID is required. Provide it as argument or use --url option.'
         );
         process.exit(1);
+      }
+
+      let scrapeOptions: Record<string, unknown> | undefined;
+      let webhook: string | Record<string, unknown> | undefined;
+
+      try {
+        scrapeOptions = parseJsonObject(
+          options.scrapeOptions,
+          undefined,
+          '--scrape-options'
+        );
+        webhook = parseWebhookOption(options.webhook, '--webhook');
+      } catch (error) {
+        if (error instanceof Error) {
+          console.error('Error:', error.message);
+          process.exit(1);
+        }
+      }
+
+      if (options.scrapeOptionsFile) {
+        scrapeOptions = parseJsonObject(
+          undefined,
+          options.scrapeOptionsFile,
+          '--scrape-options-file'
+        );
       }
 
       // Auto-detect if it's a job ID (UUID format)
@@ -432,6 +694,9 @@ function createCrawlCommand(): Command {
         allowSubdomains: options.allowSubdomains,
         delay: options.delay,
         maxConcurrency: options.maxConcurrency,
+        scrapeOptions,
+        webhook,
+        cancel: options.cancel,
       };
 
       await handleCrawlCommand(crawlOptions);
@@ -758,7 +1023,9 @@ function createAgentCommand(): Command {
       'Maximum credits to spend (job fails if exceeded)',
       parseInt
     )
+    .option('--webhook <url-or-json>', 'Webhook URL or webhook configuration')
     .option('--status', 'Check status of existing agent job', false)
+    .option('--cancel', 'Cancel active agent job by job ID', false)
     .option(
       '--wait',
       'Wait for agent to complete before returning results',
@@ -785,6 +1052,14 @@ function createAgentCommand(): Command {
     .action(async (promptOrJobId, options) => {
       // Auto-detect if it's a job ID (UUID format)
       const isStatusCheck = options.status || isJobId(promptOrJobId);
+      const isCancel = options.cancel;
+
+      if ((isStatusCheck || isCancel) && !isJobId(promptOrJobId)) {
+        console.error(
+          'Error: --status and --cancel require a job ID, not a prompt.'
+        );
+        process.exit(1);
+      }
 
       // Parse URLs
       let urls: string[] | undefined;
@@ -805,6 +1080,23 @@ function createAgentCommand(): Command {
           process.exit(1);
         }
       }
+      if (options.schemaFile) {
+        schema = parseJsonObject(
+          undefined,
+          options.schemaFile,
+          '--schema-file'
+        );
+      }
+
+      let webhook: string | AgentWebhookConfig | undefined;
+      try {
+        webhook = parseAgentWebhookOption(options.webhook, '--webhook');
+      } catch (error) {
+        if (error instanceof Error) {
+          console.error('Error:', error.message);
+          process.exit(1);
+        }
+      }
 
       // Validate model
       const validModels = ['spark-1-pro', 'spark-1-mini'];
@@ -819,10 +1111,10 @@ function createAgentCommand(): Command {
         prompt: promptOrJobId,
         urls,
         schema,
-        schemaFile: options.schemaFile,
         model: options.model,
         maxCredits: options.maxCredits,
         status: isStatusCheck,
+        cancel: isCancel,
         wait: options.wait,
         pollInterval: options.pollInterval,
         timeout: options.timeout,
@@ -831,6 +1123,7 @@ function createAgentCommand(): Command {
         output: options.output,
         json: options.json,
         pretty: options.pretty,
+        webhook,
       };
 
       await handleAgentCommand(agentOptions);
@@ -1471,6 +1764,8 @@ program
     handleVersionCommand({ authStatus: options.authStatus });
   });
 
+collectTopLevelCommands();
+
 // Parse arguments
 const args = process.argv.slice(2);
 
@@ -1489,7 +1784,7 @@ async function main() {
   }
 
   // Handle --status flag
-  if (args.includes('--status')) {
+  if (args.includes('--status') && shouldShowGlobalStatus(args)) {
     await handleStatusCommand();
     return;
   }

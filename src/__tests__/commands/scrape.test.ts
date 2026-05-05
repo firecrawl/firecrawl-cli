@@ -308,6 +308,48 @@ describe('executeScrape', () => {
       });
     });
 
+    it('should include schema in json format when provided', async () => {
+      const mockResponse = { json: { title: 'Example Domain' } };
+      const schema = {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+        },
+        required: ['title'],
+      };
+      mockClient.scrape.mockResolvedValue(mockResponse);
+
+      await executeScrape({
+        url: 'https://example.com',
+        formats: ['json'],
+        schema,
+      });
+
+      expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
+        formats: [{ type: 'json', schema }],
+        integration: 'cli',
+      });
+    });
+
+    it('should include actions and proxy when provided', async () => {
+      const mockResponse = { markdown: '# Test' };
+      const actions = [{ type: 'wait', milliseconds: 100 }];
+      mockClient.scrape.mockResolvedValue(mockResponse);
+
+      await executeScrape({
+        url: 'https://example.com',
+        actions,
+        proxy: 'basic',
+      });
+
+      expect(mockClient.scrape).toHaveBeenCalledWith('https://example.com', {
+        formats: ['markdown'],
+        integration: 'cli',
+        actions,
+        proxy: 'basic',
+      });
+    });
+
     it('should not include location parameter when not provided', async () => {
       const mockResponse = { markdown: '# Test' };
       mockClient.scrape.mockResolvedValue(mockResponse);

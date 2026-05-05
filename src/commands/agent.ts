@@ -5,8 +5,10 @@
 import type {
   AgentOptions,
   AgentResult,
+  AgentStatus,
   AgentStatusResult,
 } from '../types/agent';
+import type { AgentWebhookConfig } from '@mendable/firecrawl-js';
 import { getClient } from '../utils/client';
 import { isJobId } from '../utils/job';
 import { writeOutput } from '../utils/output';
@@ -62,6 +64,12 @@ function loadSchemaFromFile(filePath: string): Record<string, unknown> {
   }
 }
 
+type AgentStatusFromApi = 'processing' | 'completed' | 'failed';
+
+function normalizeAgentStatus(status: AgentStatusFromApi): AgentStatus {
+  return status as AgentStatus;
+}
+
 /**
  * Execute agent status check (with optional wait/polling)
  */
@@ -75,11 +83,16 @@ async function checkAgentStatus(
   if (!options.wait) {
     try {
       const status = await app.getAgentStatus(jobId);
+      const normalizedStatus = normalizeAgentStatus(
+        status.status as AgentStatusFromApi
+      );
+      const isCancelled = normalizedStatus === 'cancelled';
+
       return {
-        success: status.success,
+        success: isCancelled ? true : status.success,
         data: {
           id: jobId,
-          status: status.status,
+          status: normalizedStatus,
           data: status.data,
           creditsUsed: status.creditsUsed,
           expiresAt: status.expiresAt,
@@ -113,16 +126,21 @@ async function checkAgentStatus(
   try {
     // Check initial status
     let agentStatus = await app.getAgentStatus(jobId);
-    spinner.update(`Agent ${agentStatus.status}... (Job ID: ${jobId})`);
+    const normalizedStatusInitial = normalizeAgentStatus(
+      agentStatus.status as AgentStatusFromApi
+    );
+    spinner.update(`Agent ${normalizedStatusInitial}... (Job ID: ${jobId})`);
 
     while (true) {
-      if (agentStatus.status === 'completed') {
+      const currentNormalizedStatus = normalizeAgentStatus(agentStatus.status);
+
+      if (currentNormalizedStatus === 'completed') {
         spinner.succeed('Agent completed');
         return {
           success: agentStatus.success,
           data: {
             id: jobId,
-            status: agentStatus.status,
+            status: currentNormalizedStatus,
             data: agentStatus.data,
             creditsUsed: agentStatus.creditsUsed,
             expiresAt: agentStatus.expiresAt,
@@ -130,18 +148,32 @@ async function checkAgentStatus(
         };
       }
 
-      if (agentStatus.status === 'failed') {
+      if (currentNormalizedStatus === 'failed') {
         spinner.fail('Agent failed');
         return {
           success: false,
           data: {
             id: jobId,
-            status: agentStatus.status,
+            status: currentNormalizedStatus,
             data: agentStatus.data,
             creditsUsed: agentStatus.creditsUsed,
             expiresAt: agentStatus.expiresAt,
           },
           error: agentStatus.error,
+        };
+      }
+
+      if (currentNormalizedStatus === 'cancelled') {
+        spinner.succeed('Agent cancelled');
+        return {
+          success: true,
+          data: {
+            id: jobId,
+            status: currentNormalizedStatus,
+            data: agentStatus.data,
+            creditsUsed: agentStatus.creditsUsed,
+            expiresAt: agentStatus.expiresAt,
+          },
         };
       }
 
@@ -156,7 +188,10 @@ async function checkAgentStatus(
 
       await new Promise((resolve) => setTimeout(resolve, pollMs));
       agentStatus = await app.getAgentStatus(jobId);
-      spinner.update(`Agent ${agentStatus.status}... (Job ID: ${jobId})`);
+      const loopNormalizedStatus = normalizeAgentStatus(
+        agentStatus.status as AgentStatusFromApi
+      );
+      spinner.update(`Agent ${loopNormalizedStatus}... (Job ID: ${jobId})`);
     }
   } catch (error) {
     spinner.fail('Failed to check agent status');
@@ -177,7 +212,25 @@ export async function executeAgent(
 ): Promise<AgentResult | AgentStatusResult> {
   try {
     const app = getClient({ apiKey: options.apiKey, apiUrl: options.apiUrl });
-    const { prompt, status, wait, pollInterval, timeout } = options;
+    const { prompt, status, cancel, wait, pollInterval, timeout } = options;
+
+    if (cancel) {
+      const cancelled = await app.cancelAgent(prompt);
+      if (!cancelled) {
+        return {
+          success: false,
+          error: `Failed to cancel agent job ${prompt}`,
+        };
+      }
+
+      return {
+        success: true,
+        data: {
+          id: prompt,
+          status: 'cancelled',
+        },
+      };
+    }
 
     // If status flag is set or input looks like a job ID, check status
     if (status || isJobId(prompt)) {
@@ -201,6 +254,7 @@ export async function executeAgent(
       maxCredits?: number;
       pollInterval?: number;
       timeout?: number;
+      webhook?: string | AgentWebhookConfig;
       integration?: string;
     } = {
       prompt,
@@ -218,6 +272,9 @@ export async function executeAgent(
     }
     if (options.maxCredits !== undefined) {
       agentParams.maxCredits = options.maxCredits;
+    }
+    if (options.webhook) {
+      agentParams.webhook = options.webhook;
     }
 
     // If wait mode, use polling with spinner
@@ -259,15 +316,16 @@ export async function executeAgent(
           await new Promise((resolve) => setTimeout(resolve, pollMs));
 
           const agentStatus = await app.getAgentStatus(jobId);
+          const normalizedStatus = normalizeAgentStatus(agentStatus.status);
 
-          if (agentStatus.status === 'completed') {
+          if (normalizedStatus === 'completed') {
             process.removeListener('SIGINT', handleInterrupt);
             spinner.succeed('Agent completed');
             return {
               success: agentStatus.success,
               data: {
                 id: jobId,
-                status: agentStatus.status,
+                status: normalizedStatus,
                 data: agentStatus.data,
                 creditsUsed: agentStatus.creditsUsed,
                 expiresAt: agentStatus.expiresAt,
@@ -275,14 +333,14 @@ export async function executeAgent(
             };
           }
 
-          if (agentStatus.status === 'failed') {
+          if (normalizedStatus === 'failed') {
             process.removeListener('SIGINT', handleInterrupt);
             spinner.fail('Agent failed');
             return {
               success: false,
               data: {
                 id: jobId,
-                status: agentStatus.status,
+                status: normalizedStatus,
                 data: agentStatus.data,
                 creditsUsed: agentStatus.creditsUsed,
                 expiresAt: agentStatus.expiresAt,
