@@ -4,6 +4,8 @@ Command-line interface for Firecrawl. Search, scrape, interact, crawl, map, and 
 
 ## Installation
 
+Requires Node.js 18 or newer.
+
 ```bash
 npm install -g firecrawl-cli
 ```
