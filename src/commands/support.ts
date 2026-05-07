@@ -49,7 +49,6 @@ export type AskResponse = {
     evidence?: string;
   } | null;
   feedback?: { blockedBy?: string; attempted?: string[] } | null;
-  usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number };
   durationMs?: number;
 };
 
