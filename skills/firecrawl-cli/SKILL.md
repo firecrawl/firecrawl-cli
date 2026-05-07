@@ -63,6 +63,8 @@ Follow this escalation pattern:
 | Interact with a page        | `scrape` + `interact` | Content requires clicks, form fills, pagination, or login |
 | Download a site to files    | `download`            | Save an entire site as local files                        |
 | Parse a local file          | `parse`               | File on disk (PDF, DOCX, XLSX, etc.) — not a URL          |
+| Learn how Firecrawl works   | `docs-search`         | "How do I…" question about a Firecrawl feature/parameter  |
+| Debug a failing run         | `ask`                 | A scrape/crawl/etc. failed or returned unexpected results |
 
 For detailed command reference, run `firecrawl <command> --help`.
 
@@ -87,6 +89,8 @@ For detailed command reference, run `firecrawl <command> --help`.
 - **Clicks, forms, login, pagination, or post-scrape browser actions** -> [firecrawl-interact](../firecrawl-interact/SKILL.md)
 - **Downloading a site to local files** -> [firecrawl-download](../firecrawl-download/SKILL.md)
 - **Parsing a local file (PDF, DOCX, XLSX, HTML, etc.)** -> [firecrawl-parse](../firecrawl-parse/SKILL.md)
+- **Looking up how Firecrawl works ("how do I…" questions)** -> [firecrawl-docs-search](../firecrawl-docs-search/SKILL.md)
+- **Diagnosing a failing run ("why didn't it work…")** -> [firecrawl-ask](../firecrawl-ask/SKILL.md)
 - **Install, auth, or setup problems** -> [rules/install.md](rules/install.md)
 - **Output handling and safe file-reading patterns** -> [rules/security.md](rules/security.md)
 - **Integrating Firecrawl into an app, adding `FIRECRAWL_API_KEY` to `.env`, or choosing endpoint usage in product code** -> use the `firecrawl-build` skills (already installed alongside this CLI skill)
@@ -147,4 +151,24 @@ For interact, scrape multiple pages and interact with each independently using t
 ```bash
 firecrawl credit-usage
 firecrawl credit-usage --json --pretty -o .firecrawl/credits.json
+```
+
+## Learning & Debugging
+
+Two AI-powered commands for understanding Firecrawl behavior. Both are scoped to the caller's team automatically.
+
+- **`firecrawl docs-search "<question>"`** — answers "how do I…" questions by searching Firecrawl's official documentation. Returns a docs-grounded answer with source citations. Use this **before** generic web search for any Firecrawl-specific question (parameters, endpoints, features, status codes). See [firecrawl-docs-search](../firecrawl-docs-search/SKILL.md).
+- **`firecrawl ask "<what went wrong>"`** — diagnoses a failing or unexpected run. The AI support agent inspects job logs, account state, and the docs, then returns a 2-4 sentence diagnosis plus machine-readable `fixParameters` (often validated against the live API). Use this **whenever** a `firecrawl <cmd>` call returns an error or unexpected output and you'd otherwise be stuck. See [firecrawl-ask](../firecrawl-ask/SKILL.md).
+
+Quick examples:
+
+```bash
+# Learn how a feature works
+firecrawl docs-search "how do I verify webhook signatures?"
+
+# Debug a failing scrape (pass the job id when you have it)
+firecrawl ask "scrape returned empty markdown" --job-id abc-123-def
+
+# Capture suggested fix and reapply
+firecrawl ask "crawl stopped at 47/100 pages" --json --pretty -o .firecrawl/debug.json
 ```

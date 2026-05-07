@@ -56,3 +56,4 @@ firecrawl crawl <job-id>
 - [firecrawl-scrape](../firecrawl-scrape/SKILL.md) — scrape individual pages
 - [firecrawl-map](../firecrawl-map/SKILL.md) — discover URLs before deciding to crawl
 - [firecrawl-download](../firecrawl-download/SKILL.md) — download site to local files (uses map + scrape)
+- [firecrawl-ask](../firecrawl-ask/SKILL.md) — if a crawl stalls, returns fewer pages than expected, or fails, run `firecrawl ask --job-id <crawl-id>` for a diagnosis
