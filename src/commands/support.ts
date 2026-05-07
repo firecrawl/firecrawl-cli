@@ -236,7 +236,9 @@ function formatDocsSearchReadable(data: DocsSearchResponse): string {
     lines.push('Sources:');
     for (const item of data.evidence) {
       if (item?.pathOrUrl) {
-        lines.push(`  - ${item.pathOrUrl}${item.reason ? ` — ${item.reason}` : ''}`);
+        lines.push(
+          `  - ${item.pathOrUrl}${item.reason ? ` — ${item.reason}` : ''}`
+        );
       }
     }
     lines.push('');

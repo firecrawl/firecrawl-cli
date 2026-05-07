@@ -15,10 +15,7 @@ import {
 import { initializeConfig, updateConfig } from './utils/config';
 import { configure, viewConfig } from './commands/config';
 import { handleCreditUsageCommand } from './commands/credit-usage';
-import {
-  handleAskCommand,
-  handleDocsSearchCommand,
-} from './commands/support';
+import { handleAskCommand, handleDocsSearchCommand } from './commands/support';
 import { handleCrawlCommand } from './commands/crawl';
 import { handleMapCommand } from './commands/map';
 import { handleParseCommand } from './commands/parse';
