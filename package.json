@@ -1,7 +1,7 @@
 {
   "name": "firecrawl-cli",
   "version": "1.17.0",
-  "description": "Command-line interface for Firecrawl. Scrape, crawl, and extract data from any website directly from your terminal.",
+  "description": "Command-line interface for Firecrawl. Scrape, crawl, search, and extract data from any website, plus debug failed runs and look up Firecrawl docs with the AI support agent — all from your terminal.",
   "main": "dist/index.js",
   "bin": {
     "firecrawl": "dist/index.js"
@@ -42,7 +42,12 @@
     "markdown",
     "search",
     "web search",
-    "skill"
+    "skill",
+    "ai",
+    "ask",
+    "docs-search",
+    "support",
+    "debug"
   ],
   "author": "Firecrawl",
   "license": "ISC",
