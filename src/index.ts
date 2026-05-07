@@ -15,6 +15,10 @@ import {
 import { initializeConfig, updateConfig } from './utils/config';
 import { configure, viewConfig } from './commands/config';
 import { handleCreditUsageCommand } from './commands/credit-usage';
+import {
+  handleAskCommand,
+  handleDocsSearchCommand,
+} from './commands/support';
 import { handleCrawlCommand } from './commands/crawl';
 import { handleMapCommand } from './commands/map';
 import { handleParseCommand } from './commands/parse';
@@ -70,6 +74,8 @@ const AUTH_REQUIRED_COMMANDS = [
   'browser',
   'interact',
   'credit-usage',
+  'ask',
+  'docs-search',
 ];
 
 const commandSet = new Set<string>([]);
@@ -1754,6 +1760,81 @@ program
   )
   .action(async (options) => {
     await handleCreditUsageCommand(options);
+  });
+
+program
+  .command('ask <question...>')
+  .description(
+    'Diagnose a Firecrawl issue with the AI support agent. Use when a scrape/crawl/search/etc. failed or returned unexpected results — the agent investigates job logs, account state, and the docs, then returns a fix.'
+  )
+  .option(
+    '-r, --rationale <text>',
+    'Recommended for AI callers — 1-2 sentences on what the end user is trying to accomplish'
+  )
+  .option(
+    '-j, --job-id <id>',
+    'Optional Firecrawl job id the failing call was associated with (helps the agent pull the right logs)'
+  )
+  .option(
+    '--context <json>',
+    'Free-form metadata as a JSON object string, passed to the agent verbatim'
+  )
+  .option(
+    '-k, --api-key <key>',
+    'Firecrawl API key (overrides global --api-key)'
+  )
+  .option('--api-url <url>', 'API URL (overrides global --api-url)')
+  .option('-o, --output <path>', 'Output file path (default: stdout)')
+  .option('--json', 'Output as JSON format', false)
+  .option(
+    '--pretty',
+    'Pretty print JSON output (only applies with --json)',
+    false
+  )
+  .action(async (questionParts: string[], options) => {
+    let context: Record<string, unknown> | undefined;
+    if (options.context) {
+      const parsed = parseJsonInput(options.context, '--context');
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        context = parsed as Record<string, unknown>;
+      } else {
+        console.error('Error: --context must be a JSON object');
+        process.exit(1);
+      }
+    }
+    const question = (questionParts || []).join(' ').trim();
+    await handleAskCommand(question, {
+      apiKey: options.apiKey,
+      apiUrl: options.apiUrl,
+      output: options.output,
+      json: options.json,
+      pretty: options.pretty,
+      rationale: options.rationale,
+      jobId: options.jobId,
+      context,
+    });
+  });
+
+program
+  .command('docs-search <question...>')
+  .description(
+    "Search Firecrawl's public documentation. Use when you need to learn how a Firecrawl endpoint, parameter, or feature works (e.g., 'how do I verify webhook signatures?'). Returns a docs-grounded answer with source citations."
+  )
+  .option(
+    '-k, --api-key <key>',
+    'Firecrawl API key (overrides global --api-key)'
+  )
+  .option('--api-url <url>', 'API URL (overrides global --api-url)')
+  .option('-o, --output <path>', 'Output file path (default: stdout)')
+  .option('--json', 'Output as JSON format', false)
+  .option(
+    '--pretty',
+    'Pretty print JSON output (only applies with --json)',
+    false
+  )
+  .action(async (questionParts: string[], options) => {
+    const question = (questionParts || []).join(' ').trim();
+    await handleDocsSearchCommand(question, options);
   });
 
 program
