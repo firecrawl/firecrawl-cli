@@ -63,6 +63,7 @@ Follow this escalation pattern:
 | Interact with a page        | `scrape` + `interact` | Content requires clicks, form fills, pagination, or login |
 | Download a site to files    | `download`            | Save an entire site as local files                        |
 | Parse a local file          | `parse`               | File on disk (PDF, DOCX, XLSX, etc.) — not a URL          |
+| Watch pages for changes     | `monitor`             | Schedule recurring scrapes/crawls, diff against snapshots |
 
 For detailed command reference, run `firecrawl <command> --help`.
 
@@ -71,6 +72,29 @@ For detailed command reference, run `firecrawl <command> --help`.
 - Use `scrape` first. It handles static pages and JS-rendered SPAs.
 - Use `scrape` + `interact` when you need to interact with a page, such as clicking buttons, filling out forms, navigating through a complex site, infinite scroll, or when scrape fails to grab all the content you need.
 - Never use interact for web searches - use `search` instead.
+
+**Monitor:** Schedule recurring scrapes or crawls and diff each result against the last retained snapshot. Use for product pages, docs, blogs, changelogs, competitor sites — any page where changes matter. Each check labels pages as `same`, `new`, `changed`, `removed`, or `error`, with webhook and email notification options.
+
+Subcommands: `create | list | get | update | delete | run | checks | check`.
+
+```bash
+# create from flags
+firecrawl monitor create --name "Blog" --schedule "every 30 minutes" \
+  --urls https://example.com/blog --email alerts@example.com
+
+# or from JSON (positional file, or piped stdin)
+firecrawl monitor create monitor.json
+cat monitor.json | firecrawl monitor create
+
+firecrawl monitor list --limit 20
+firecrawl monitor run <monitorId>             # trigger a check now
+firecrawl monitor checks <monitorId>          # list checks
+firecrawl monitor check <monitorId> <checkId> --page-status changed
+firecrawl monitor update <monitorId> --state paused
+firecrawl monitor delete <monitorId>
+```
+
+Schedules accept cron (`--cron "*/30 * * * *"`) or natural language (`--schedule "every 30 minutes"`). Minimum interval is 15 minutes. Targets are either `--urls a,b,c` (scrape) or `--crawl-url <url>` (crawl whole site each check). Note: `--state` (not `--status`) sets active/paused; `--page-status` (not `--status`) filters page results on `check` — avoids collision with the global `--status` flag. Monitoring is not available for zero-data-retention teams.
 
 **Avoid redundant fetches:**
 

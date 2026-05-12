@@ -88,14 +88,26 @@ function emit(
   writeOutput(text, options.output, !!options.output);
 }
 
-function readJsonInput(input: string): unknown {
-  // Accept either a JSON literal or @path/to/file.json
-  if (input.startsWith('@')) {
-    const filePath = input.slice(1);
-    const raw = fs.readFileSync(filePath, 'utf-8');
+/**
+ * Read a JSON payload from a positional arg or piped stdin.
+ *
+ * - `file` is a path to a .json file, or `-` to read stdin explicitly.
+ * - If `file` is omitted and stdin is a pipe, stdin is used.
+ * - Returns `undefined` when no source is provided — caller falls back to flags.
+ */
+async function readJsonPayload(file?: string): Promise<unknown | undefined> {
+  if (file === '-' || (!file && !process.stdin.isTTY)) {
+    const chunks: Buffer[] = [];
+    for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
+    const raw = Buffer.concat(chunks).toString('utf-8').trim();
+    if (!raw) return undefined;
     return JSON.parse(raw);
   }
-  return JSON.parse(input);
+  if (file) {
+    const raw = fs.readFileSync(file, 'utf-8');
+    return JSON.parse(raw);
+  }
+  return undefined;
 }
 
 function parseCommaList(value: string): string[] {
@@ -117,7 +129,6 @@ function fail(error: unknown): never {
  * cover the common scrape-target shape.
  */
 function buildCreateBody(opts: {
-  body?: string;
   name?: string;
   cron?: string;
   scheduleText?: string;
@@ -129,8 +140,6 @@ function buildCreateBody(opts: {
   emailRecipients?: string[];
   retentionDays?: number;
 }): unknown {
-  if (opts.body) return readJsonInput(opts.body);
-
   if (!opts.name) {
     throw new Error('--name is required (or pass --body @file.json)');
   }
@@ -204,7 +213,11 @@ export function createMonitorCommand(): Command {
   commonOptions(
     monitor
       .command('create')
-      .description('Create a monitor')
+      .description('Create a monitor (flags, or JSON from file/stdin)')
+      .argument(
+        '[file]',
+        'Path to JSON payload (use "-" or pipe stdin to read from stdin)'
+      )
       .option('--name <name>', 'Monitor name')
       .option('--cron <expression>', 'Cron schedule (e.g. "*/30 * * * *")')
       .option(
@@ -230,25 +243,23 @@ export function createMonitorCommand(): Command {
         parseCommaList
       )
       .option('--retention-days <n>', 'Snapshot retention window', parseInt)
-      .option(
-        '--body <json|@file>',
-        'Raw JSON body (or @path/to/file.json) — overrides flag-built payload'
-      )
-  ).action(async (options) => {
+  ).action(async (file: string | undefined, options) => {
     try {
-      const body = buildCreateBody({
-        body: options.body,
-        name: options.name,
-        cron: options.cron,
-        scheduleText: options.schedule,
-        timezone: options.timezone,
-        urls: options.urls,
-        crawlUrl: options.crawlUrl,
-        webhookUrl: options.webhookUrl,
-        webhookEvents: options.webhookEvents,
-        emailRecipients: options.email,
-        retentionDays: options.retentionDays,
-      });
+      const fromJson = await readJsonPayload(file);
+      const body =
+        fromJson ??
+        buildCreateBody({
+          name: options.name,
+          cron: options.cron,
+          scheduleText: options.schedule,
+          timezone: options.timezone,
+          urls: options.urls,
+          crawlUrl: options.crawlUrl,
+          webhookUrl: options.webhookUrl,
+          webhookEvents: options.webhookEvents,
+          emailRecipients: options.email,
+          retentionDays: options.retentionDays,
+        });
       const payload = await monitorRequest('/monitor', options, {
         method: 'POST',
         body,
@@ -299,23 +310,24 @@ export function createMonitorCommand(): Command {
   commonOptions(
     monitor
       .command('update')
-      .description('Update a monitor (partial)')
+      .description('Update a monitor (flags, or JSON from file/stdin)')
       .argument('<monitorId>', 'Monitor ID')
+      .argument(
+        '[file]',
+        'Path to JSON payload (use "-" or pipe stdin to read from stdin)'
+      )
       .option('--name <name>', 'New name')
       .option('--cron <expression>', 'New cron schedule')
       .option('--schedule <text>', 'New natural-language schedule')
       .option('--timezone <tz>', 'Schedule timezone')
       .option('--state <state>', 'active | paused')
       .option('--retention-days <n>', 'Snapshot retention window', parseInt)
-      .option(
-        '--body <json|@file>',
-        'Raw JSON body (or @path/to/file.json) — overrides flag-built payload'
-      )
-  ).action(async (monitorId, options) => {
+  ).action(async (monitorId: string, file: string | undefined, options) => {
     try {
+      const fromJson = await readJsonPayload(file);
       let body: Record<string, unknown>;
-      if (options.body) {
-        body = readJsonInput(options.body) as Record<string, unknown>;
+      if (fromJson) {
+        body = fromJson as Record<string, unknown>;
       } else {
         body = {};
         if (options.name) body.name = options.name;
@@ -331,7 +343,7 @@ export function createMonitorCommand(): Command {
         }
         if (Object.keys(body).length === 0) {
           throw new Error(
-            'Provide at least one field to update (or --body @file.json)'
+            'Provide at least one field to update (or a JSON file / stdin payload)'
           );
         }
       }
@@ -445,7 +457,8 @@ Examples:
       --schedule "every 30 minutes" \\
       --urls https://example.com/blog \\
       --email alerts@example.com
-  $ firecrawl monitor create --body @monitor.json
+  $ firecrawl monitor create monitor.json
+  $ cat monitor.json | firecrawl monitor create
   $ firecrawl monitor list --limit 20
   $ firecrawl monitor get mon_abc123
   $ firecrawl monitor update mon_abc123 --state paused
