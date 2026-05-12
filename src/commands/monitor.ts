@@ -149,7 +149,7 @@ function buildCreateBody(opts: {
   const hasScrape = opts.urls && opts.urls.length > 0;
   const hasCrawl = !!opts.crawlUrl;
   if (!hasScrape && !hasCrawl) {
-    throw new Error('Provide --urls (scrape) or --crawl-url (crawl)');
+    throw new Error('Provide --scrape-urls or --crawl-url');
   }
 
   const schedule: Record<string, unknown> = {};
@@ -226,7 +226,7 @@ export function createMonitorCommand(): Command {
       )
       .option('--timezone <tz>', 'Schedule timezone', 'UTC')
       .option(
-        '--urls <list>',
+        '--scrape-urls <list>',
         'Comma-separated URLs to scrape on each check',
         parseCommaList
       )
@@ -253,7 +253,7 @@ export function createMonitorCommand(): Command {
           cron: options.cron,
           scheduleText: options.schedule,
           timezone: options.timezone,
-          urls: options.urls,
+          urls: options.scrapeUrls,
           crawlUrl: options.crawlUrl,
           webhookUrl: options.webhookUrl,
           webhookEvents: options.webhookEvents,
@@ -455,7 +455,7 @@ export function createMonitorCommand(): Command {
 Examples:
   $ firecrawl monitor create --name "Blog" \\
       --schedule "every 30 minutes" \\
-      --urls https://example.com/blog \\
+      --scrape-urls https://example.com/blog \\
       --email alerts@example.com
   $ firecrawl monitor create monitor.json
   $ cat monitor.json | firecrawl monitor create

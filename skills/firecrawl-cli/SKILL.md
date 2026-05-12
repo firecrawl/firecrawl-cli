@@ -80,7 +80,7 @@ Subcommands: `create | list | get | update | delete | run | checks | check`.
 ```bash
 # create from flags
 firecrawl monitor create --name "Blog" --schedule "every 30 minutes" \
-  --urls https://example.com/blog --email alerts@example.com
+  --scrape-urls https://example.com/blog --email alerts@example.com
 
 # or from JSON (positional file, or piped stdin)
 firecrawl monitor create monitor.json
@@ -94,7 +94,7 @@ firecrawl monitor update <monitorId> --state paused
 firecrawl monitor delete <monitorId>
 ```
 
-Schedules accept cron (`--cron "*/30 * * * *"`) or natural language (`--schedule "every 30 minutes"`). Minimum interval is 15 minutes. Targets are either `--urls a,b,c` (scrape) or `--crawl-url <url>` (crawl whole site each check). Note: `--state` (not `--status`) sets active/paused; `--page-status` (not `--status`) filters page results on `check` — avoids collision with the global `--status` flag. Monitoring is not available for zero-data-retention teams.
+Schedules accept cron (`--cron "*/30 * * * *"`) or natural language (`--schedule "every 30 minutes"`). Minimum interval is 15 minutes. Targets are either `--scrape-urls a,b,c` (scrape) or `--crawl-url <url>` (crawl whole site each check). Note: `--state` (not `--status`) sets active/paused; `--page-status` (not `--status`) filters page results on `check` — avoids collision with the global `--status` flag. Monitoring is not available for zero-data-retention teams.
 
 **Avoid redundant fetches:**
 
