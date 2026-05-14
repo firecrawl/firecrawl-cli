@@ -19,6 +19,12 @@ import { handleCrawlCommand } from './commands/crawl';
 import { handleMapCommand } from './commands/map';
 import { handleParseCommand } from './commands/parse';
 import { handleSearchCommand } from './commands/search';
+import {
+  handleSearchFeedbackCommand,
+  parseValuableSourcesArg,
+  parseMissingContentArg,
+  type SearchFeedbackRating,
+} from './commands/search-feedback';
 import { handleAgentCommand } from './commands/agent';
 import {
   handleBrowserLaunch,
@@ -66,6 +72,7 @@ const AUTH_REQUIRED_COMMANDS = [
   'map',
   'parse',
   'search',
+  'search-feedback',
   'agent',
   'browser',
   'interact',
@@ -996,6 +1003,88 @@ function createSearchCommand(): Command {
 }
 
 /**
+ * Create the search-feedback command. Used by agents (CLI, MCP, skills) to
+ * report search-result quality after a `firecrawl search` call. The first
+ * feedback per search id refunds 1 credit (search costs 2). Re-submitting
+ * for the same search id is a no-op refund-wise.
+ */
+function createSearchFeedbackCommand(): Command {
+  const cmd = new Command('search-feedback')
+    .description(
+      'Send feedback on a previous search result. Refunds 1 credit on first submission.'
+    )
+    .argument('<searchId>', 'The id returned by `firecrawl search ... --json`')
+    .requiredOption('--rating <rating>', 'Overall rating: good | bad | partial')
+    .option(
+      '--valuable-sources <urlsOrJson>',
+      'Comma-separated URLs OR JSON array of {url, reason} entries'
+    )
+    .option(
+      '--missing-content <topicsOrJson...>',
+      'Specific pieces of content missing from results. ' +
+        'Accepts: JSON array of {topic, description} objects, ' +
+        'comma-separated topics ("pricing tiers, api rate limits"), ' +
+        'or "topic: description" form. Repeat the flag for multiple entries.'
+    )
+    .option(
+      '--query-suggestions <text>',
+      'How the query or result set could be improved'
+    )
+    .option(
+      '-k, --api-key <key>',
+      'Firecrawl API key (overrides global --api-key)'
+    )
+    .option('--api-url <url>', 'API URL (overrides global --api-url)')
+    .option('-o, --output <path>', 'Output file path (default: stdout)')
+    .option('--json', 'Output as compact JSON', false)
+    .option('--pretty', 'Pretty print JSON output', false)
+    .option(
+      '--silent',
+      'Suppress output; useful when called in the background by another agent',
+      false
+    )
+    .action(async (searchId: string, options: any) => {
+      const rating = String(options.rating || '').toLowerCase();
+      if (!['good', 'bad', 'partial'].includes(rating)) {
+        console.error('Error: --rating must be one of: good, bad, partial');
+        process.exit(1);
+      }
+
+      let valuableSources;
+      try {
+        valuableSources = parseValuableSourcesArg(options.valuableSources);
+      } catch (error: any) {
+        console.error('Error:', error?.message || 'Invalid --valuable-sources');
+        process.exit(1);
+      }
+
+      let missingContent;
+      try {
+        missingContent = parseMissingContentArg(options.missingContent);
+      } catch (error: any) {
+        console.error('Error:', error?.message || 'Invalid --missing-content');
+        process.exit(1);
+      }
+
+      await handleSearchFeedbackCommand({
+        searchId,
+        rating: rating as SearchFeedbackRating,
+        valuableSources,
+        missingContent,
+        querySuggestions: options.querySuggestions,
+        apiKey: options.apiKey,
+        apiUrl: options.apiUrl,
+        output: options.output,
+        json: options.json,
+        pretty: options.pretty,
+        silent: options.silent,
+      });
+    });
+
+  return cmd;
+}
+
+/**
  * Create and configure the agent command
  */
 function createAgentCommand(): Command {
@@ -1575,6 +1664,7 @@ program.addCommand(createCrawlCommand());
 program.addCommand(createMapCommand());
 program.addCommand(createParseCommand());
 program.addCommand(createSearchCommand());
+program.addCommand(createSearchFeedbackCommand());
 program.addCommand(createAgentCommand());
 program.addCommand(createInteractCommand());
 

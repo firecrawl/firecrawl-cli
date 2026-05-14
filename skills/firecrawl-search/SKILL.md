@@ -52,6 +52,71 @@ firecrawl search "your query" --sources news --tbs qdr:d -o .firecrawl/news.json
 - Use `jq` to extract URLs or titles: `jq -r '.data.web[].url' .firecrawl/search.json`
 - Naming convention: `.firecrawl/search-{query}.json` or `.firecrawl/search-{query}-scraped.json`
 
+## Send feedback after every search (refunds 1 credit)
+
+Search costs 2 credits. After you've actually used the results (or decided they were useless), send structured feedback with `firecrawl search-feedback <id>`. The first feedback per search refunds 1 credit and helps us improve search quality. **Do this once per search**, in the background, after you finish processing the results — it does not block your main task.
+
+**Opt out:** if `FIRECRAWL_NO_SEARCH_FEEDBACK=1` (or `FIRECRAWL_DISABLE_SEARCH_FEEDBACK=1`) is set, the CLI silently skips the call and never sends anything. Respect that — do not try to work around it. (Team admins can also disable this server-side; the API will return `feedbackErrorCode: "TEAM_OPTED_OUT"` and the CLI will exit 0 silently.)
+
+**Rules to know before you call this:**
+
+- **Time window:** must be sent within ~2 minutes of the search. Late feedback is rejected.
+- **`--missing-content` is the most important field.** It's a list of _specific pieces_ of content you expected but did not find. One topic per entry — do not pack multiple topics into one string. These aggregate across teams and tell us what to index next.
+- **Substantive content required** (zero-effort feedback is rejected with HTTP 400):
+  - `good` → must include at least one `--valuable-sources` entry.
+  - `partial` → must include `--valuable-sources` or `--missing-content`.
+  - `bad` → must include `--missing-content` or `--query-suggestions`.
+- **Daily refund cap (per team, per UTC day, default 100 credits).** Once your team has been refunded 100 credits today, further submissions still record feedback but no longer refund credits. The response includes `creditsRefundedToday` / `dailyRefundCap` / `dailyCapReached`. **When `dailyCapReached: true`, stop calling `search-feedback` for the rest of the UTC day** — it won't refund anything and you're wasting bandwidth.
+- **Idempotent:** re-submitting for the same search id returns success but no extra refund.
+- **`--silent &`** is the right pattern — exit code 0 even on failure, so a rejected/expired call never crashes your pipeline.
+
+Read the search response's `id`:
+
+```bash
+SEARCH_ID=$(jq -r '.id' .firecrawl/search-react-hooks.json)
+```
+
+Then send feedback. Pick the rating that matches what actually happened:
+
+```bash
+# Results were useful, with notes on what was still missing
+firecrawl search-feedback "$SEARCH_ID" \
+  --rating good \
+  --valuable-sources '[{"url":"https://react.dev/reference/react/hooks","reason":"Most authoritative"}]' \
+  --missing-content '[
+    {"topic":"useDeferredValue","description":"No example of useDeferredValue with Suspense"},
+    {"topic":"useTransition","description":"No coverage of useTransition for routing"}
+  ]' \
+  --query-suggestions "Boost react.dev for queries about react hooks" \
+  --silent &
+
+# Results were partially useful — multiple missing topics, one entry per topic
+firecrawl search-feedback "$SEARCH_ID" \
+  --rating partial \
+  --missing-content '[
+    {"topic":"useDeferredValue"},
+    {"topic":"useTransition","description":"Need React 18+ examples"},
+    {"topic":"Server Components hooks"}
+  ]' \
+  --silent &
+
+# Quick form — repeat --missing-content or use comma-separated topics
+firecrawl search-feedback "$SEARCH_ID" \
+  --rating bad \
+  --missing-content "official api reference: missing v2 endpoints" \
+  --missing-content "code examples in python" \
+  --silent &
+```
+
+**`--missing-content` accepts:**
+
+- JSON array of `{topic, description?}` objects (richest, preferred)
+- `"topic: description"` strings (shorthand)
+- Plain `"topic1, topic2, topic3"` (when you only have topic names)
+- Repeated `--missing-content` flags
+
+`--silent` suppresses output and `&` runs it in the background so feedback never blocks you.
+
 ## See also
 
 - [firecrawl-scrape](../firecrawl-scrape/SKILL.md) — scrape a specific URL

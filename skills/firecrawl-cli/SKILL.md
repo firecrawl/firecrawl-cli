@@ -129,6 +129,25 @@ jq -r '.data.web[].url' .firecrawl/search.json
 jq -r '.data.web[] | "\(.title): \(.url)"' .firecrawl/search.json
 ```
 
+## After search: send feedback (refunds 1 credit)
+
+Search costs 2 credits per call. **After you finish using a search result**, send structured feedback in the background. The first feedback per search id refunds 1 credit and feeds search-quality improvements.
+
+```bash
+SEARCH_ID=$(jq -r '.id' .firecrawl/search-react-hooks.json)
+
+firecrawl search-feedback "$SEARCH_ID" \
+  --rating good \
+  --valuable-sources '[{"url":"https://react.dev/reference/react/hooks","reason":"Authoritative"}]' \
+  --missing-content '[{"topic":"useDeferredValue example"},{"topic":"Server Components hooks"}]' \
+  --query-suggestions "Boost react.dev for react-hooks queries" \
+  --silent &
+```
+
+The most useful field is `--missing-content`: an _array_ of specific pieces of content you expected to find but didn't. Use one entry per missing topic. Bad/partial feedback with detailed `--missing-content` is just as valuable as good feedback.
+
+**Opt out:** `export FIRECRAWL_NO_SEARCH_FEEDBACK=1` makes the CLI skip every feedback call silently. Respect that flag — do not try to work around it. See [firecrawl-search](../firecrawl-search/SKILL.md) for the full pattern.
+
 ## Parallelization
 
 Run independent operations in parallel. Check `firecrawl --status` for concurrency limit:
