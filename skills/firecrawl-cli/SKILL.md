@@ -63,6 +63,7 @@ Follow this escalation pattern:
 | Interact with a page        | `scrape` + `interact` | Content requires clicks, form fills, pagination, or login |
 | Download a site to files    | `download`            | Save an entire site as local files                        |
 | Parse a local file          | `parse`               | File on disk (PDF, DOCX, XLSX, etc.) — not a URL          |
+| Watch pages for changes     | `monitor`             | Schedule recurring scrapes/crawls, diff against snapshots |
 
 For detailed command reference, run `firecrawl <command> --help`.
 
@@ -71,6 +72,95 @@ For detailed command reference, run `firecrawl <command> --help`.
 - Use `scrape` first. It handles static pages and JS-rendered SPAs.
 - Use `scrape` + `interact` when you need to interact with a page, such as clicking buttons, filling out forms, navigating through a complex site, infinite scroll, or when scrape fails to grab all the content you need.
 - Never use interact for web searches - use `search` instead.
+
+**Monitor:** Schedule recurring scrapes or crawls and diff each result against the last retained snapshot. Use for product pages, docs, blogs, changelogs, competitor sites — any page where changes matter. Each check labels pages as `same`, `new`, `changed`, `removed`, or `error`, with webhook and email notification options.
+
+Subcommands: `create | list | get | update | delete | run | checks | check`.
+
+```bash
+# create from flags
+firecrawl monitor create --name "Blog" --schedule "every 30 minutes" \
+  --scrape-urls https://example.com/blog --email alerts@example.com
+
+# or from JSON (positional file, or piped stdin)
+firecrawl monitor create monitor.json
+cat monitor.json | firecrawl monitor create
+
+firecrawl monitor list --limit 20
+firecrawl monitor run <monitorId>             # trigger a check now
+firecrawl monitor checks <monitorId>          # list checks
+firecrawl monitor check <monitorId> <checkId> --page-status changed
+firecrawl monitor update <monitorId> --state paused
+firecrawl monitor delete <monitorId>
+```
+
+Schedules accept cron (`--cron "*/30 * * * *"`) or natural language (`--schedule "every 30 minutes"`). Minimum interval is 15 minutes. Targets are either `--scrape-urls a,b,c` (scrape) or `--crawl-url <url>` (crawl whole site each check). Note: `--state` (not `--status`) sets active/paused; `--page-status` (not `--status`) filters page results on `check` — avoids collision with the global `--status` flag. Monitoring is not available for zero-data-retention teams.
+
+**JSON-mode change tracking:** By default monitors diff each page's markdown and you get a unified text diff back. When you care about **specific structured fields** (price, headline, in-stock flag, items in a list) instead of the whole page, add a `changeTracking` format with `modes: ["json"]` and a JSON schema to the target's `scrapeOptions.formats`. The flag-based form doesn't cover this — pass a JSON body via file or stdin:
+
+```bash
+cat > pricing-monitor.json <<'EOF'
+{
+  "name": "Pricing watch",
+  "schedule": { "text": "hourly", "timezone": "UTC" },
+  "targets": [{
+    "type": "scrape",
+    "urls": ["https://example.com/pricing"],
+    "scrapeOptions": {
+      "formats": [{
+        "type": "changeTracking",
+        "modes": ["json"],
+        "prompt": "Extract pricing tiers and headline features for each plan.",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "plans": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name":     { "type": "string" },
+                  "price":    { "type": "string" },
+                  "features": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        }
+      }]
+    }
+  }]
+}
+EOF
+firecrawl monitor create pricing-monitor.json
+```
+
+The `check` response then carries a per-field diff (paths like `plans[0].price`) and the full extraction at this run, instead of (or in addition to) a markdown diff. Each changed page in `pages[]` looks like:
+
+```json
+{
+  "url": "https://example.com/pricing",
+  "status": "changed",
+  "diff": {
+    "json": {
+      "plans[0].price": { "previous": "$19/mo", "current": "$24/mo" },
+      "plans[1].features[2]": {
+        "previous": "10 GB storage",
+        "current": "25 GB storage"
+      }
+    }
+  },
+  "snapshot": {
+    "json": {
+      "plans": [
+        /* current full extraction */
+      ]
+    }
+  }
+}
+```
+
+Use `modes: ["json", "git-diff"]` for **mixed mode**: you get both `diff.json` (per-field) and `diff.text` (markdown sidecar), and the page is marked `changed` whenever either surface changed. For markdown-only monitors, `diff.text` holds the unified diff and `diff.json` is a `parse-diff` AST (`{ files: [...] }`); there is no `snapshot`.
 
 **Avoid redundant fetches:**
 

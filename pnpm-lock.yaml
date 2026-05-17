@@ -12,8 +12,8 @@ importers:
         specifier: ^8.2.1
         version: 8.2.1(@types/node@20.19.27)
       '@mendable/firecrawl-js':
-        specifier: 4.17.0
-        version: 4.17.0
+        specifier: 4.24.0
+        version: 4.24.0
       commander:
         specifier: ^14.0.2
         version: 14.0.2
@@ -332,8 +332,8 @@ packages:
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
 
-  '@mendable/firecrawl-js@4.17.0':
-    resolution: {integrity: sha512-4Dz2y8QLJMlf45qQIyCgvfjbz+cn9T5jRf0aTxFptBe+123373Vsker9vKYHriWIl2oO/SwRSILkJV6AsGlCMA==}
+  '@mendable/firecrawl-js@4.24.0':
+    resolution: {integrity: sha512-VergmApaVrr4zdAVchmJJajQn+o6+m6UjqNnf3E6RlNfISXLDIHrrvfYQSoe1cFGb+gWfHzPTJSXa13jWC7THg==}
     engines: {node: '>=22.0.0'}
 
   '@rollup/rollup-android-arm-eabi@4.55.1':
@@ -524,8 +524,8 @@ packages:
   asynckit@0.4.0:
     resolution: {integrity: sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==}
 
-  axios@1.13.6:
-    resolution: {integrity: sha512-ChTCHMouEe2kn713WHbQGcuYrr6fXTBiu460OTwWrWob16g1bXn4vtz07Ope7ewMozJAnEquLk5lWQWtBig9DQ==}
+  axios@1.15.2:
+    resolution: {integrity: sha512-wLrXxPtcrPTsNlJmKjkPnNPK2Ihe0hn0wGSaTEiHRPxwjvJwT3hKmXF4dpqxmPO9SoNb2FsYXj/xEo0gHN+D5A==}
 
   braces@3.0.3:
     resolution: {integrity: sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==}
@@ -860,8 +860,9 @@ packages:
     engines: {node: '>=14'}
     hasBin: true
 
-  proxy-from-env@1.1.0:
-    resolution: {integrity: sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==}
+  proxy-from-env@2.1.0:
+    resolution: {integrity: sha512-cJ+oHTW1VAEa8cJslgmUZrc+sjRKgAKl3Zyse6+PV38hZe/V6Z14TbCuXcan9F9ghlz4QrFr2c92TNF82UkYHA==}
+    engines: {node: '>=10'}
 
   restore-cursor@5.1.0:
     resolution: {integrity: sha512-oMA2dcrw6u0YfxJQXm342bFKX/E4sG9rbTzO9ptUcR/e8A33cHuvStiYOwH7fszkZlZ1z/ta9AAoPk2F4qIOHA==}
@@ -1259,9 +1260,9 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
-  '@mendable/firecrawl-js@4.17.0':
+  '@mendable/firecrawl-js@4.24.0':
     dependencies:
-      axios: 1.13.6
+      axios: 1.15.2
       firecrawl: 4.16.0
       typescript-event-target: 1.1.2
       zod: 3.25.76
@@ -1410,11 +1411,11 @@ snapshots:
 
   asynckit@0.4.0: {}
 
-  axios@1.13.6:
+  axios@1.15.2:
     dependencies:
       follow-redirects: 1.15.11
       form-data: 4.0.5
-      proxy-from-env: 1.1.0
+      proxy-from-env: 2.1.0
     transitivePeerDependencies:
       - debug
 
@@ -1562,7 +1563,7 @@ snapshots:
 
   firecrawl@4.16.0:
     dependencies:
-      axios: 1.13.6
+      axios: 1.15.2
       typescript-event-target: 1.1.2
       zod: 3.25.76
       zod-to-json-schema: 3.25.1(zod@3.25.76)
@@ -1737,7 +1738,7 @@ snapshots:
 
   prettier@3.7.4: {}
 
-  proxy-from-env@1.1.0: {}
+  proxy-from-env@2.1.0: {}
 
   restore-cursor@5.1.0:
     dependencies:

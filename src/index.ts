@@ -18,6 +18,7 @@ import { handleCreditUsageCommand } from './commands/credit-usage';
 import { handleCrawlCommand } from './commands/crawl';
 import { handleMapCommand } from './commands/map';
 import { handleParseCommand } from './commands/parse';
+import { createMonitorCommand } from './commands/monitor';
 import { handleSearchCommand } from './commands/search';
 import {
   handleSearchFeedbackCommand,
@@ -72,6 +73,7 @@ const AUTH_REQUIRED_COMMANDS = [
   'browser',
   'interact',
   'credit-usage',
+  'monitor',
 ];
 
 const commandSet = new Set<string>([]);
@@ -1658,6 +1660,7 @@ Examples:
 program.addCommand(createCrawlCommand());
 program.addCommand(createMapCommand());
 program.addCommand(createParseCommand());
+program.addCommand(createMonitorCommand());
 program.addCommand(createSearchCommand());
 program.addCommand(createSearchFeedbackCommand());
 program.addCommand(createAgentCommand());
