@@ -11,7 +11,7 @@ import { getConfig, validateConfig } from '../utils/config';
 import { loadCredentials } from '../utils/credentials';
 import { isSearchFeedbackDisabledLocally } from './search-feedback';
 
-type AuthSource = 'env' | 'stored' | 'none';
+export type AuthSource = 'env' | 'stored' | 'none';
 
 interface QueueStatusResponse {
   success: boolean;
@@ -57,7 +57,7 @@ interface LocalStatus {
 /**
  * Detect how the user is authenticated
  */
-function getAuthSource(): AuthSource {
+export function getAuthSource(): AuthSource {
   if (process.env.FIRECRAWL_API_KEY) {
     return 'env';
   }
