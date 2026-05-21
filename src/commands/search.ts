@@ -90,44 +90,28 @@ export async function executeSearch(
       searchParams.scrapeOptions = scrapeOptions;
     }
 
-    // Execute search
-    const result = await app.search(options.query, searchParams);
+    // Call /v2/search through the SDK's HTTP layer (auth + retries) instead
+    // of `app.search()` so we keep the full response envelope. The high-level
+    // `search()` helper drops `id` and `creditsUsed`, which breaks the
+    // `firecrawl search-feedback <id>` workflow that consumers rely on.
+    const httpResponse = await (app as any).http.post('/v2/search', {
+      query: options.query,
+      ...searchParams,
+    });
+    const envelope = (httpResponse?.data ?? {}) as Record<string, any>;
+    const payload = (envelope.data ?? {}) as Record<string, any>;
 
-    // Handle the response - the SDK returns the data directly or wrapped
     const data: SearchResultData = {};
-
-    // Check if result has the expected structure
-    if (result) {
-      // Handle web results
-      if (result.web || (result as any).data?.web) {
-        data.web = (result.web ||
-          (result as any).data?.web) as WebSearchResult[];
-      }
-
-      // Handle image results
-      if (result.images || (result as any).data?.images) {
-        data.images = (result.images ||
-          (result as any).data?.images) as ImageSearchResult[];
-      }
-
-      // Handle news results
-      if (result.news || (result as any).data?.news) {
-        data.news = (result.news ||
-          (result as any).data?.news) as NewsSearchResult[];
-      }
-
-      // If result is an array (legacy format), treat as web results
-      if (Array.isArray(result)) {
-        data.web = result as WebSearchResult[];
-      }
-    }
+    if (payload.web) data.web = payload.web as WebSearchResult[];
+    if (payload.images) data.images = payload.images as ImageSearchResult[];
+    if (payload.news) data.news = payload.news as NewsSearchResult[];
 
     return {
       success: true,
       data,
-      warning: (result as any)?.warning,
-      id: (result as any)?.id,
-      creditsUsed: (result as any)?.creditsUsed,
+      warning: envelope.warning,
+      id: envelope.id,
+      creditsUsed: envelope.creditsUsed,
     };
   } catch (error) {
     return {

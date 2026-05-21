@@ -49,7 +49,34 @@ export async function executeCrawl(
 ): Promise<CrawlResult | CrawlStatusResult> {
   try {
     const app = getClient({ apiKey: options.apiKey, apiUrl: options.apiUrl });
-    const { urlOrJobId, status, wait, pollInterval, timeout } = options;
+    const { urlOrJobId, status, wait, pollInterval, timeout, cancel } = options;
+
+    if (cancel) {
+      if (!isJobId(urlOrJobId)) {
+        return {
+          success: false,
+          error: 'Cancel mode requires a job ID',
+        };
+      }
+
+      const cancelled = await app.cancelCrawl(urlOrJobId);
+      if (!cancelled) {
+        return {
+          success: false,
+          error: `Failed to cancel crawl job ${urlOrJobId}`,
+        };
+      }
+
+      return {
+        success: true,
+        data: {
+          id: urlOrJobId,
+          status: 'cancelled',
+          total: 0,
+          completed: 0,
+        },
+      };
+    }
 
     // If status flag is set or input looks like a job ID, check status
     if (status || isJobId(urlOrJobId)) {
@@ -93,6 +120,14 @@ export async function executeCrawl(
     }
     if (options.maxConcurrency !== undefined) {
       crawlOptions.maxConcurrency = options.maxConcurrency;
+    }
+
+    if (options.scrapeOptions) {
+      crawlOptions.scrapeOptions = options.scrapeOptions;
+    }
+
+    if (options.webhook) {
+      crawlOptions.webhook = options.webhook;
     }
 
     // If wait mode, use the convenience crawl method with polling

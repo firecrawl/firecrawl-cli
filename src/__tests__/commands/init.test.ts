@@ -17,7 +17,7 @@ describe('handleInitCommand', () => {
     vi.restoreAllMocks();
   });
 
-  it('installs skills globally across all detected agents in non-interactive mode', async () => {
+  it('installs skills from all repos globally across all detected agents in non-interactive mode', async () => {
     await handleInitCommand({
       yes: true,
       skipInstall: true,
@@ -26,11 +26,19 @@ describe('handleInitCommand', () => {
 
     expect(execSync).toHaveBeenCalledWith(
       'npx -y skills add firecrawl/cli --full-depth --global --all --yes',
-      { stdio: 'inherit' }
+      expect.objectContaining({ stdio: ['ignore', 'pipe', 'pipe'] })
+    );
+    expect(execSync).toHaveBeenCalledWith(
+      'npx -y skills add firecrawl/skills --full-depth --global --all --yes',
+      expect.objectContaining({ stdio: ['ignore', 'pipe', 'pipe'] })
+    );
+    expect(execSync).toHaveBeenCalledWith(
+      'npx -y skills add firecrawl/firecrawl-workflows --full-depth --global --all --yes',
+      expect.objectContaining({ stdio: ['ignore', 'pipe', 'pipe'] })
     );
   });
 
-  it('scopes non-interactive skills install to one agent when provided', async () => {
+  it('scopes non-interactive skills install to one agent across all repos when provided', async () => {
     await handleInitCommand({
       yes: true,
       skipInstall: true,
@@ -40,7 +48,15 @@ describe('handleInitCommand', () => {
 
     expect(execSync).toHaveBeenCalledWith(
       'npx -y skills add firecrawl/cli --full-depth --global --yes --agent cursor',
-      { stdio: 'inherit' }
+      expect.objectContaining({ stdio: ['ignore', 'pipe', 'pipe'] })
+    );
+    expect(execSync).toHaveBeenCalledWith(
+      'npx -y skills add firecrawl/skills --full-depth --global --yes --agent cursor',
+      expect.objectContaining({ stdio: ['ignore', 'pipe', 'pipe'] })
+    );
+    expect(execSync).toHaveBeenCalledWith(
+      'npx -y skills add firecrawl/firecrawl-workflows --full-depth --global --yes --agent cursor',
+      expect.objectContaining({ stdio: ['ignore', 'pipe', 'pipe'] })
     );
   });
 });

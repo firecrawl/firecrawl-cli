@@ -6,6 +6,7 @@
  */
 
 import { Command } from 'commander';
+import { readFileSync } from 'fs';
 import {
   handleScrapeCommand,
   handleMultiScrapeCommand,
@@ -16,7 +17,15 @@ import { configure, viewConfig } from './commands/config';
 import { handleCreditUsageCommand } from './commands/credit-usage';
 import { handleCrawlCommand } from './commands/crawl';
 import { handleMapCommand } from './commands/map';
+import { handleParseCommand } from './commands/parse';
+import { createMonitorCommand } from './commands/monitor';
 import { handleSearchCommand } from './commands/search';
+import {
+  handleSearchFeedbackCommand,
+  parseValuableSourcesArg,
+  parseMissingContentArg,
+  type SearchFeedbackRating,
+} from './commands/search-feedback';
 import { handleAgentCommand } from './commands/agent';
 import {
   handleBrowserLaunch,
@@ -45,11 +54,8 @@ import { ensureAuthenticated, printBanner } from './utils/auth';
 import packageJson from '../package.json';
 import type { SearchSource, SearchCategory } from './types/search';
 import type { ScrapeFormat } from './types/scrape';
-import {
-  createClaudeCommand,
-  createCodexCommand,
-  createOpenCodeCommand,
-} from './commands/experimental';
+import type { AgentWebhookConfig } from '@mendable/firecrawl-js';
+import { createCreateCommand } from './commands/create';
 
 // Initialize global configuration from environment variables
 initializeConfig();
@@ -60,12 +66,204 @@ const AUTH_REQUIRED_COMMANDS = [
   'download',
   'crawl',
   'map',
+  'parse',
   'search',
+  'search-feedback',
   'agent',
   'browser',
   'interact',
   'credit-usage',
+  'monitor',
 ];
+
+const commandSet = new Set<string>([]);
+
+function collectTopLevelCommands(): void {
+  commandSet.clear();
+  for (const command of program.commands) {
+    commandSet.add(command.name());
+    for (const alias of command.aliases()) {
+      commandSet.add(alias);
+    }
+  }
+}
+
+function parseJsonInput(raw: string, label: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    throw new Error(
+      `Invalid JSON in ${label}: ${error instanceof Error ? error.message : 'Unable to parse JSON'}`
+    );
+  }
+}
+
+function parseJsonFromFile(filePath: string, label: string): unknown {
+  try {
+    const content = readFileSync(filePath, 'utf-8');
+    return parseJsonInput(content, `${label} file`);
+  } catch (error: any) {
+    if (error?.code === 'ENOENT') {
+      throw new Error(`Could not read ${label} file: ${filePath}`);
+    }
+    if (error instanceof SyntaxError) {
+      throw new Error(`Invalid JSON in ${label} file: ${filePath}`);
+    }
+    throw error;
+  }
+}
+
+function parseJsonPayload(
+  inline: string | undefined,
+  filePath: string | undefined,
+  label: string
+): unknown | undefined {
+  if (inline !== undefined) {
+    return parseJsonInput(inline, label);
+  }
+
+  if (filePath !== undefined) {
+    return parseJsonFromFile(filePath, label);
+  }
+
+  return undefined;
+}
+
+function parseJsonObject(
+  inline: string | undefined,
+  filePath: string | undefined,
+  label: string
+): Record<string, unknown> | undefined {
+  const parsed = parseJsonPayload(inline, filePath, label);
+  if (parsed === undefined) {
+    return undefined;
+  }
+
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error(`Invalid ${label}: expected a JSON object`);
+  }
+
+  return parsed as Record<string, unknown>;
+}
+
+function parseJsonArray(
+  inline: string | undefined,
+  filePath: string | undefined,
+  label: string
+): Record<string, unknown>[] | undefined {
+  const parsed = parseJsonPayload(inline, filePath, label);
+  if (parsed === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error(`Invalid ${label}: expected a JSON array`);
+  }
+
+  return parsed as Record<string, unknown>[];
+}
+
+function parseWebhookOption(
+  raw: string | undefined,
+  label: string
+): string | Record<string, unknown> | undefined {
+  if (!raw) {
+    return undefined;
+  }
+
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    const parsed = parseJsonPayload(trimmed, undefined, label);
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      throw new Error(`Invalid ${label}: expected webhook object or URL`);
+    }
+    return parsed as Record<string, unknown>;
+  }
+
+  return trimmed;
+}
+
+function parseAgentWebhookOption(
+  raw: string | undefined,
+  label: string
+): string | AgentWebhookConfig | undefined {
+  const webhook = parseWebhookOption(raw, label);
+
+  if (webhook === undefined || typeof webhook === 'string') {
+    return webhook;
+  }
+
+  if (typeof webhook.url !== 'string' || webhook.url.trim().length === 0) {
+    throw new Error(
+      `Invalid ${label}: webhook object requires a non-empty "url"`
+    );
+  }
+
+  return webhook as unknown as AgentWebhookConfig;
+}
+
+function getFirstPositionalArg(args: string[]): string | undefined {
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (!arg || arg === '--') {
+      continue;
+    }
+
+    if (!arg.startsWith('-')) {
+      return arg;
+    }
+
+    // Skip values for known global options and positional flags used before subcommand parsing.
+    if (
+      [
+        '-k',
+        '--api-key',
+        '--api-url',
+        '-u',
+        '--url',
+        '-f',
+        '--format',
+      ].includes(arg) &&
+      args[i + 1] !== undefined
+    ) {
+      i += 1;
+      continue;
+    }
+
+    if (arg.startsWith('--')) {
+      const equalsIndex = arg.indexOf('=');
+      if (equalsIndex !== -1) {
+        continue;
+      }
+
+      // Single-dash option with attached value is rare in commander CLI usage;
+      // safest to ignore as positional-only command parser here.
+      if (args[i + 1] !== undefined && !args[i + 1].startsWith('-')) {
+        i += 1;
+        continue;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function shouldShowGlobalStatus(args: string[]): boolean {
+  const command = getFirstPositionalArg(args);
+  if (!command) {
+    return true;
+  }
+
+  return !commandSet.has(command);
+}
 
 const program = new Command();
 
@@ -172,6 +370,12 @@ function createScrapeCommand(): Command {
       '--no-save-changes',
       'Load existing profile data without saving changes (default: saves changes)'
     )
+    .option('--lockdown', 'Enable lockdown mode for the scrape', false)
+    .option('--schema <json>', 'JSON schema for structured extraction')
+    .option('--schema-file <path>', 'Path to JSON schema file')
+    .option('--actions <json>', 'JSON actions array to run during scrape')
+    .option('--actions-file <path>', 'Path to JSON actions file')
+    .option('--proxy <proxy>', 'Proxy mode for scraping (e.g., auto, basic)')
 
     .action(async (positionalArgs, options) => {
       // Collect URLs from positional args and --url option
@@ -199,6 +403,34 @@ function createScrapeCommand(): Command {
         process.exit(1);
       }
 
+      let schema: Record<string, unknown> | undefined;
+      let actions: Record<string, unknown>[] | undefined;
+
+      try {
+        schema = parseJsonObject(options.schema, undefined, '--schema');
+        actions = parseJsonArray(options.actions, undefined, '--actions');
+      } catch (error) {
+        if (error instanceof Error) {
+          console.error('Error:', error.message);
+          process.exit(1);
+        }
+      }
+
+      if (options.schemaFile) {
+        schema = parseJsonObject(
+          undefined,
+          options.schemaFile,
+          '--schema-file'
+        );
+      }
+      if (options.actionsFile) {
+        actions = parseJsonArray(
+          undefined,
+          options.actionsFile,
+          '--actions-file'
+        );
+      }
+
       // Determine format
       let format: string;
       const positionalFormats = (positionalArgs || []).filter(
@@ -221,11 +453,17 @@ function createScrapeCommand(): Command {
         url: urls[0],
         format,
       });
+      const scrapeOptionsWithExtensions = {
+        ...scrapeOptions,
+        schema,
+        actions,
+        proxy: options.proxy,
+      };
 
       if (urls.length === 1) {
-        await handleScrapeCommand(scrapeOptions);
+        await handleScrapeCommand(scrapeOptionsWithExtensions);
       } else {
-        await handleMultiScrapeCommand(urls, scrapeOptions);
+        await handleMultiScrapeCommand(urls, scrapeOptionsWithExtensions);
       }
     });
 
@@ -287,6 +525,7 @@ function createDownloadCommand(): Command {
       '--languages <codes>',
       'Comma-separated language codes for scraping (e.g., en,es)'
     )
+    .option('--lockdown', 'Enable lockdown mode for the scrape', false)
     .option('-y, --yes', 'Skip confirmation prompt', false)
     .option(
       '-k, --api-key <key>',
@@ -326,8 +565,7 @@ function createDownloadCommand(): Command {
   return downloadCmd;
 }
 
-// Add download command to main program
-program.addCommand(createDownloadCommand());
+// download command is registered under 'experimental' below
 
 /**
  * Create and configure the crawl command
@@ -383,6 +621,13 @@ function createCrawlCommand(): Command {
       parseInt
     )
     .option(
+      '--scrape-options <json>',
+      'JSON scrape options passed to each page crawl'
+    )
+    .option('--scrape-options-file <path>', 'Path to scrape options JSON file')
+    .option('--webhook <url-or-json>', 'Webhook URL or webhook configuration')
+    .option('--cancel', 'Cancel active crawl job by job ID', false)
+    .option(
       '-k, --api-key <key>',
       'Firecrawl API key (overrides global --api-key)'
     )
@@ -397,6 +642,31 @@ function createCrawlCommand(): Command {
           'Error: URL or job ID is required. Provide it as argument or use --url option.'
         );
         process.exit(1);
+      }
+
+      let scrapeOptions: Record<string, unknown> | undefined;
+      let webhook: string | Record<string, unknown> | undefined;
+
+      try {
+        scrapeOptions = parseJsonObject(
+          options.scrapeOptions,
+          undefined,
+          '--scrape-options'
+        );
+        webhook = parseWebhookOption(options.webhook, '--webhook');
+      } catch (error) {
+        if (error instanceof Error) {
+          console.error('Error:', error.message);
+          process.exit(1);
+        }
+      }
+
+      if (options.scrapeOptionsFile) {
+        scrapeOptions = parseJsonObject(
+          undefined,
+          options.scrapeOptionsFile,
+          '--scrape-options-file'
+        );
       }
 
       // Auto-detect if it's a job ID (UUID format)
@@ -428,6 +698,9 @@ function createCrawlCommand(): Command {
         allowSubdomains: options.allowSubdomains,
         delay: options.delay,
         maxConcurrency: options.maxConcurrency,
+        scrapeOptions,
+        webhook,
+        cancel: options.cancel,
       };
 
       await handleCrawlCommand(crawlOptions);
@@ -496,6 +769,97 @@ function createMapCommand(): Command {
     });
 
   return mapCmd;
+}
+
+/**
+ * Create and configure the parse command
+ */
+function createParseCommand(): Command {
+  const parseCmd = new Command('parse')
+    .description(
+      'Parse a local file (HTML, PDF, DOCX, DOC, ODT, RTF, XLSX, XLS) into markdown, HTML, links, JSON, and more. Uses /v2/parse.'
+    )
+    .argument('<file>', 'Path to the local file to parse')
+    .option('-H, --html', 'Output raw HTML (shortcut for --format html)')
+    .option(
+      '-f, --format <formats>',
+      'Output format(s). Multiple formats can be specified with commas (e.g., "markdown,links"). Available: markdown, html, rawHtml, links, images, summary, json, attributes. Single format outputs raw content; multiple formats output JSON.'
+    )
+    .option('--only-main-content', 'Include only main content', false)
+    .option('-S, --summary', 'Output summary (shortcut for --format summary)')
+    .option('--include-tags <tags>', 'Comma-separated list of tags to include')
+    .option('--exclude-tags <tags>', 'Comma-separated list of tags to exclude')
+    .option(
+      '--timeout <ms>',
+      'Timeout in milliseconds for the parse job',
+      parseInt
+    )
+    .option(
+      '-Q, --query <prompt>',
+      'Ask a question about the parsed content (query format)'
+    )
+    .option(
+      '-k, --api-key <key>',
+      'Firecrawl API key (overrides global --api-key)'
+    )
+    .option('--api-url <url>', 'API URL (overrides global --api-url)')
+    .option('-o, --output <path>', 'Output file path (default: stdout)')
+    .option('--json', 'Output as JSON format', false)
+    .option('--pretty', 'Pretty print JSON output', false)
+    .option(
+      '--timing',
+      'Show request timing and other useful information',
+      false
+    )
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ firecrawl parse ./report.pdf
+  $ firecrawl parse ./report.pdf -f markdown,links
+  $ firecrawl parse ./page.html -H
+  $ firecrawl parse ./contract.docx --only-main-content
+  $ firecrawl parse ./report.pdf -Q "What is the total revenue?"
+  $ firecrawl parse ./report.pdf --json --pretty -o report.json
+
+Supported file types: .html, .htm, .pdf, .docx, .doc, .odt, .rtf, .xlsx, .xls
+Max upload size: 50 MB
+`
+    )
+    .action(async (file: string, options) => {
+      let format: string | undefined;
+      if (options.html) {
+        format = 'html';
+      } else if (options.summary) {
+        format = 'summary';
+      } else if (options.format) {
+        format = options.format;
+      }
+
+      const scrapeOptions = parseScrapeOptions({
+        ...options,
+        url: 'file://' + file,
+        format: format ?? 'markdown',
+      });
+
+      await handleParseCommand({
+        file,
+        formats: scrapeOptions.formats,
+        onlyMainContent: scrapeOptions.onlyMainContent,
+        includeTags: scrapeOptions.includeTags,
+        excludeTags: scrapeOptions.excludeTags,
+        timeout: options.timeout,
+        apiKey: options.apiKey,
+        apiUrl: options.apiUrl,
+        output: options.output,
+        pretty: options.pretty,
+        json: options.json,
+        timing: options.timing,
+        query: options.query,
+      });
+    });
+
+  return parseCmd;
 }
 
 /**
@@ -636,6 +1000,88 @@ function createSearchCommand(): Command {
 }
 
 /**
+ * Create the search-feedback command. Used by agents (CLI, MCP, skills) to
+ * report search-result quality after a `firecrawl search` call. The first
+ * feedback per search id refunds 1 credit (search costs 2). Re-submitting
+ * for the same search id is a no-op refund-wise.
+ */
+function createSearchFeedbackCommand(): Command {
+  const cmd = new Command('search-feedback')
+    .description(
+      'Send feedback on a previous search result. Refunds 1 credit on first submission.'
+    )
+    .argument('<searchId>', 'The id returned by `firecrawl search ... --json`')
+    .requiredOption('--rating <rating>', 'Overall rating: good | bad | partial')
+    .option(
+      '--valuable-sources <urlsOrJson>',
+      'Comma-separated URLs OR JSON array of {url, reason} entries'
+    )
+    .option(
+      '--missing-content <topicsOrJson...>',
+      'Specific pieces of content missing from results. ' +
+        'Accepts: JSON array of {topic, description} objects, ' +
+        'comma-separated topics ("pricing tiers, api rate limits"), ' +
+        'or "topic: description" form. Repeat the flag for multiple entries.'
+    )
+    .option(
+      '--query-suggestions <text>',
+      'How the query or result set could be improved'
+    )
+    .option(
+      '-k, --api-key <key>',
+      'Firecrawl API key (overrides global --api-key)'
+    )
+    .option('--api-url <url>', 'API URL (overrides global --api-url)')
+    .option('-o, --output <path>', 'Output file path (default: stdout)')
+    .option('--json', 'Output as compact JSON', false)
+    .option('--pretty', 'Pretty print JSON output', false)
+    .option(
+      '--silent',
+      'Suppress output; useful when called in the background by another agent',
+      false
+    )
+    .action(async (searchId: string, options: any) => {
+      const rating = String(options.rating || '').toLowerCase();
+      if (!['good', 'bad', 'partial'].includes(rating)) {
+        console.error('Error: --rating must be one of: good, bad, partial');
+        process.exit(1);
+      }
+
+      let valuableSources;
+      try {
+        valuableSources = parseValuableSourcesArg(options.valuableSources);
+      } catch (error: any) {
+        console.error('Error:', error?.message || 'Invalid --valuable-sources');
+        process.exit(1);
+      }
+
+      let missingContent;
+      try {
+        missingContent = parseMissingContentArg(options.missingContent);
+      } catch (error: any) {
+        console.error('Error:', error?.message || 'Invalid --missing-content');
+        process.exit(1);
+      }
+
+      await handleSearchFeedbackCommand({
+        searchId,
+        rating: rating as SearchFeedbackRating,
+        valuableSources,
+        missingContent,
+        querySuggestions: options.querySuggestions,
+        apiKey: options.apiKey,
+        apiUrl: options.apiUrl,
+        output: options.output,
+        json: options.json,
+        pretty: options.pretty,
+        silent: options.silent,
+      });
+    });
+
+  return cmd;
+}
+
+/**
  * Create and configure the agent command
  */
 function createAgentCommand(): Command {
@@ -663,7 +1109,9 @@ function createAgentCommand(): Command {
       'Maximum credits to spend (job fails if exceeded)',
       parseInt
     )
+    .option('--webhook <url-or-json>', 'Webhook URL or webhook configuration')
     .option('--status', 'Check status of existing agent job', false)
+    .option('--cancel', 'Cancel active agent job by job ID', false)
     .option(
       '--wait',
       'Wait for agent to complete before returning results',
@@ -690,6 +1138,14 @@ function createAgentCommand(): Command {
     .action(async (promptOrJobId, options) => {
       // Auto-detect if it's a job ID (UUID format)
       const isStatusCheck = options.status || isJobId(promptOrJobId);
+      const isCancel = options.cancel;
+
+      if ((isStatusCheck || isCancel) && !isJobId(promptOrJobId)) {
+        console.error(
+          'Error: --status and --cancel require a job ID, not a prompt.'
+        );
+        process.exit(1);
+      }
 
       // Parse URLs
       let urls: string[] | undefined;
@@ -710,6 +1166,23 @@ function createAgentCommand(): Command {
           process.exit(1);
         }
       }
+      if (options.schemaFile) {
+        schema = parseJsonObject(
+          undefined,
+          options.schemaFile,
+          '--schema-file'
+        );
+      }
+
+      let webhook: string | AgentWebhookConfig | undefined;
+      try {
+        webhook = parseAgentWebhookOption(options.webhook, '--webhook');
+      } catch (error) {
+        if (error instanceof Error) {
+          console.error('Error:', error.message);
+          process.exit(1);
+        }
+      }
 
       // Validate model
       const validModels = ['spark-1-pro', 'spark-1-mini'];
@@ -724,10 +1197,10 @@ function createAgentCommand(): Command {
         prompt: promptOrJobId,
         urls,
         schema,
-        schemaFile: options.schemaFile,
         model: options.model,
         maxCredits: options.maxCredits,
         status: isStatusCheck,
+        cancel: isCancel,
         wait: options.wait,
         pollInterval: options.pollInterval,
         timeout: options.timeout,
@@ -736,6 +1209,7 @@ function createAgentCommand(): Command {
         output: options.output,
         json: options.json,
         pretty: options.pretty,
+        webhook,
       };
 
       await handleAgentCommand(agentOptions);
@@ -1182,18 +1656,36 @@ Examples:
   return interactCmd;
 }
 
-// Add crawl, map, search, agent, browser, and interact commands to main program
+// Add core commands to main program
 program.addCommand(createCrawlCommand());
 program.addCommand(createMapCommand());
+program.addCommand(createParseCommand());
+program.addCommand(createMonitorCommand());
 program.addCommand(createSearchCommand());
+program.addCommand(createSearchFeedbackCommand());
 program.addCommand(createAgentCommand());
-program.addCommand(createBrowserCommand());
 program.addCommand(createInteractCommand());
 
-// Experimental: AI workflow commands
-program.addCommand(createClaudeCommand());
-program.addCommand(createCodexCommand());
-program.addCommand(createOpenCodeCommand());
+// Hidden: deprecated browser command (still works, just not in --help)
+program.addCommand(createBrowserCommand(), { hidden: true });
+
+// Hidden: `firecrawl create <kind>` — scaffolds Firecrawl starter projects.
+// Undocumented until `firecrawl-agent-cli` is published to npm; flip to
+// visible by removing `{ hidden: true }`.
+program.addCommand(createCreateCommand(), { hidden: true });
+
+// Experimental: download command
+const experimental = new Command('experimental')
+  .description('Experimental commands (download)')
+  .alias('x')
+  .addHelpText(
+    'after',
+    `
+Shorthand: "firecrawl x" is an alias for "firecrawl experimental".
+`
+  );
+experimental.addCommand(createDownloadCommand());
+program.addCommand(experimental);
 
 program
   .command('config')
@@ -1293,13 +1785,14 @@ program
   .option('--skip-auth', 'Skip authentication')
   .option('--skip-skills', 'Skip skills installation')
   .action(async (template, options) => {
+    const globalOptions = program.opts();
     await handleInitCommand({
       template,
       global: options.global,
       agent: options.agent,
       all: options.all,
       yes: options.yes,
-      apiKey: options.apiKey,
+      apiKey: options.apiKey ?? globalOptions.apiKey,
       browser: options.browser,
       skipInstall: options.skipInstall,
       skipAuth: options.skipAuth,
@@ -1309,8 +1802,10 @@ program
 
 program
   .command('setup')
-  .description('Set up individual firecrawl integrations (skills, mcp)')
-  .argument('<subcommand>', 'What to set up: "skills" or "mcp"')
+  .description(
+    'Set up individual firecrawl integrations (skills, workflows, mcp)'
+  )
+  .argument('<subcommand>', 'What to set up: "skills", "workflows", or "mcp"')
   .option('-g, --global', 'Install globally (user-level)')
   .option('-a, --agent <agent>', 'Install to a specific agent')
   .action(async (subcommand: SetupSubcommand, options) => {
@@ -1356,6 +1851,8 @@ program
     handleVersionCommand({ authStatus: options.authStatus });
   });
 
+collectTopLevelCommands();
+
 // Parse arguments
 const args = process.argv.slice(2);
 
@@ -1374,7 +1871,7 @@ async function main() {
   }
 
   // Handle --status flag
-  if (args.includes('--status')) {
+  if (args.includes('--status') && shouldShowGlobalStatus(args)) {
     await handleStatusCommand();
     return;
   }

@@ -8,7 +8,13 @@ import { execSync } from 'child_process';
 import { isAuthenticated, browserLogin, interactiveLogin } from '../utils/auth';
 import { saveCredentials } from '../utils/credentials';
 import { updateConfig, getApiKey } from '../utils/config';
-import { buildSkillsInstallArgs } from './skills-install';
+import {
+  ALL_SKILL_REPOS,
+  buildSkillsInstallArgs,
+  cleanNpmEnv,
+  SKILL_REPOS,
+  WORKFLOW_SKILL_REPOS,
+} from './skills-install';
 import { hasNpx, installSkillsNative } from './skills-native';
 
 export interface InitOptions {
@@ -94,6 +100,138 @@ export const TEMPLATES: TemplateEntry[] = [
   },
 ];
 
+/** Human-friendly labels for skill repos, shown during install. */
+const SKILL_REPO_LABELS: Record<string, string> = {
+  'firecrawl/cli': 'core firecrawl skills',
+  'firecrawl/skills': 'skills to build with firecrawl',
+  'firecrawl/firecrawl-workflows': 'firecrawl workflow skills',
+};
+
+function skillRepoLabel(repo: string): string {
+  return SKILL_REPO_LABELS[repo] ?? repo;
+}
+
+/**
+ * Install one skill repo quietly. Captures `npx skills add` output instead of
+ * inheriting it, so users see a single line per repo. Returns the number of
+ * skills installed (parsed from the captured stdout), or null if unknown.
+ *
+ * In a TTY, shows a transient "↓ Installing <label>..." line that gets
+ * overwritten by "✓ <label> (N)" on success. In a non-TTY, prints only
+ * the final line.
+ */
+async function installSkillRepoQuiet(
+  repo: string,
+  options: InitOptions
+): Promise<number | null> {
+  const label = skillRepoLabel(repo);
+
+  if (hasNpx()) {
+    const args = buildSkillsInstallArgs({
+      repo,
+      agent: options.agent,
+      yes: options.yes || options.all || true,
+      global: true,
+      includeNpxYes: true,
+    });
+
+    const isTty = process.stdout.isTTY;
+    if (isTty) {
+      process.stdout.write(`  ${dim}↓ Installing ${label}...${reset}`);
+    }
+    try {
+      const stdout = execSync(args.join(' '), {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: cleanNpmEnv(),
+      });
+      const count = parseSkillCount(stdout?.toString() ?? '');
+      const suffix = count != null ? ` ${dim}(${count})${reset}` : '';
+      const padding = ' '.repeat(20); // clears any leftover "Installing..." text
+      if (isTty) {
+        process.stdout.write(
+          `\r  ${green}✓${reset} ${label}${suffix}${padding}\n`
+        );
+      } else {
+        console.log(`  ${green}✓${reset} ${label}${suffix}`);
+      }
+      return count;
+    } catch (err) {
+      if (isTty) {
+        process.stdout.write(`\r  ${dim}✗ ${label}${' '.repeat(20)}${reset}\n`);
+      } else {
+        console.log(`  ${dim}✗${reset} ${label}`);
+      }
+      const stderr =
+        err && typeof err === 'object' && 'stderr' in err
+          ? String((err as { stderr: Buffer | string }).stderr || '')
+          : '';
+      if (stderr.trim()) {
+        console.error(
+          stderr
+            .trim()
+            .split('\n')
+            .map((l) => `    ${dim}${l}${reset}`)
+            .join('\n')
+        );
+      }
+      throw err;
+    }
+  }
+
+  // No npx — fall back to native installer. It prints its own status.
+  await installSkillsNative(repo);
+  return null;
+}
+
+/** Parse "Found N skills" or "Installed N skills" from npx skills output. */
+function parseSkillCount(output: string): number | null {
+  const match = output.match(/(?:Found|Installed)\s+(\d+)\s+skills?/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+/**
+ * Print the post-install next-steps block. Brief by design — confirms what was
+ * installed and gives 4 entry points (AI prompt, direct CLI, MCP, help).
+ */
+function printNextSteps(skillCount: number | null): void {
+  const arrow = `${dim}→${reset}`;
+  const summary =
+    skillCount != null
+      ? `${green}✓${reset} Installed ${bold}${skillCount} skills${reset} ${dim}across your AI coding agents${reset}`
+      : `${green}✓${reset} Skills installed ${dim}across your AI coding agents${reset}`;
+
+  console.log('');
+  console.log(`  ${summary}`);
+  console.log('');
+  console.log(
+    `  ${dim}Connect & interact with the web ${reset}${dim}(direct or in your AI agent):${reset}`
+  );
+  console.log(
+    `    ${arrow} ${bold}Scrape${reset}    "Scrape the pricing page of stripe.com"    ${dim}firecrawl scrape https://stripe.com/pricing${reset}`
+  );
+  console.log(
+    `    ${arrow} ${bold}Search${reset}    "Search for the latest stories in AI"      ${dim}firecrawl search "latest stories in AI"${reset}`
+  );
+  console.log(
+    `    ${arrow} ${bold}Interact${reset}  "Go to amazon.com, search keyboards, filter by Prime"  ${dim}firecrawl interact "search keyboards, filter by Prime"${reset}`
+  );
+  console.log('');
+  console.log(
+    `  ${arrow} ${dim}Add MCP:     ${reset} ${bold}firecrawl setup mcp${reset}`
+  );
+  console.log(
+    `  ${arrow} ${dim}All commands:${reset} ${bold}firecrawl --help${reset}`
+  );
+  console.log('');
+  console.log(
+    `  ${dim}Building with firecrawl? Just describe what you want to build or integrate.${reset}`
+  );
+  console.log(
+    `  ${dim}Example:${reset} ${bold}"I want to use firecrawl to build an onboarding flow for my insurance company"${reset}`
+  );
+  console.log('');
+}
+
 async function stepInstall(): Promise<boolean> {
   const { confirm } = await import('@inquirer/prompts');
   const shouldInstall = await confirm({
@@ -117,11 +255,6 @@ async function stepInstall(): Promise<boolean> {
 }
 
 async function stepAuth(options: InitOptions): Promise<boolean> {
-  if (isAuthenticated()) {
-    console.log(`  ${green}✓${reset} Already authenticated\n`);
-    return true;
-  }
-
   if (options.apiKey) {
     try {
       saveCredentials({ apiKey: options.apiKey });
@@ -135,6 +268,11 @@ async function stepAuth(options: InitOptions): Promise<boolean> {
       );
       return false;
     }
+  }
+
+  if (isAuthenticated()) {
+    console.log(`  ${green}✓${reset} Already authenticated\n`);
+    return true;
   }
 
   const { select } = await import('@inquirer/prompts');
@@ -178,22 +316,27 @@ async function stepAuth(options: InitOptions): Promise<boolean> {
   }
 }
 
-async function stepIntegrations(options: InitOptions): Promise<void> {
+async function stepIntegrations(options: InitOptions): Promise<number | null> {
   const { checkbox, confirm } = await import('@inquirer/prompts');
 
   const wantIntegrations = await confirm({
-    message: 'Set up integrations (skills, MCP, env)?',
+    message: 'Set up integrations (skills, workflows, MCP, env)?',
     default: true,
   });
 
-  if (!wantIntegrations) return;
+  if (!wantIntegrations) return null;
 
   const integrations = await checkbox<string>({
     message: 'Which integrations?',
     choices: [
       {
-        name: 'Skills — install firecrawl skill for AI coding agents',
+        name: 'Skills — install core/build Firecrawl skills for AI coding agents',
         value: 'skills',
+        checked: true,
+      },
+      {
+        name: 'Workflows — install Firecrawl workflow skills',
+        value: 'workflows',
         checked: true,
       },
       {
@@ -209,34 +352,35 @@ async function stepIntegrations(options: InitOptions): Promise<void> {
 
   if (integrations.length === 0) {
     console.log(`  ${dim}No integrations selected.${reset}\n`);
-    return;
+    return null;
   }
 
+  let totalSkills: number | null = null;
   for (const integration of integrations) {
     switch (integration) {
       case 'skills': {
-        console.log(`\n  Setting up skills...`);
-        if (hasNpx()) {
-          const args = buildSkillsInstallArgs({
-            agent: options.agent,
-            yes: options.yes || options.all,
-            global: true,
-            includeNpxYes: true,
-          });
+        console.log(`\n  Installing skills...`);
+        for (const repo of SKILL_REPOS) {
           try {
-            execSync(args.join(' '), { stdio: 'inherit' });
-            console.log(`  ${green}✓${reset} Skills installed`);
+            const count = await installSkillRepoQuiet(repo, options);
+            if (count != null) totalSkills = (totalSkills ?? 0) + count;
           } catch {
             console.error(
-              '  Failed to install skills. Run "firecrawl setup skills" later.'
+              `  ${dim}Run "firecrawl setup skills" later to retry.${reset}`
             );
           }
-        } else {
+        }
+        break;
+      }
+      case 'workflows': {
+        console.log(`\n  Installing workflow skills...`);
+        for (const repo of WORKFLOW_SKILL_REPOS) {
           try {
-            await installSkillsNative();
+            const count = await installSkillRepoQuiet(repo, options);
+            if (count != null) totalSkills = (totalSkills ?? 0) + count;
           } catch {
             console.error(
-              '  Failed to install skills. Run "firecrawl setup skills" later.'
+              `  ${dim}Run "firecrawl setup workflows" later to retry.${reset}`
             );
           }
         }
@@ -264,7 +408,7 @@ async function stepIntegrations(options: InitOptions): Promise<void> {
         try {
           execSync(args.join(' '), {
             stdio: 'inherit',
-            env: { ...process.env, FIRECRAWL_API_KEY: apiKey },
+            env: { ...cleanNpmEnv(), FIRECRAWL_API_KEY: apiKey },
           });
           console.log(`  ${green}✓${reset} MCP server installed`);
         } catch {
@@ -287,7 +431,7 @@ async function stepIntegrations(options: InitOptions): Promise<void> {
       }
     }
   }
-  console.log('');
+  return totalSkills;
 }
 
 function copyTemplateFiles(
@@ -545,22 +689,21 @@ export async function handleInitCommand(
   }
 
   // Step 3: Integrations (skills, MCP, env)
+  let skillCount: number | null = null;
   if (!options.skipSkills) {
-    await stepIntegrations(options);
+    skillCount = await stepIntegrations(options);
   }
 
   // Step 4: Template
   await stepTemplate();
 
-  console.log(
-    `${green}${bold}  Setup complete!${reset} Run ${dim}firecrawl --help${reset} to get started.\n`
-  );
+  printNextSteps(skillCount);
 }
 
 async function runNonInteractive(options: InitOptions): Promise<void> {
   const steps: string[] = [];
-  if (!options.skipInstall) steps.push('install');
   if (!options.skipAuth) steps.push('auth');
+  if (!options.skipInstall) steps.push('install');
   if (!options.skipSkills) steps.push('skills');
   const total = steps.length;
   let current = 0;
@@ -570,24 +713,8 @@ async function runNonInteractive(options: InitOptions): Promise<void> {
     return `${bold}[${current}/${total}]${reset}`;
   };
 
-  if (!options.skipInstall) {
-    console.log(`${stepLabel()} Installing firecrawl-cli globally...`);
-    try {
-      execSync('npm install -g firecrawl-cli', { stdio: 'inherit' });
-      console.log(`${green}✓${reset} CLI installed globally\n`);
-    } catch {
-      console.error(
-        '\nFailed to install firecrawl-cli globally. You may need to run with sudo or fix npm permissions.'
-      );
-      process.exit(1);
-    }
-  }
-
   if (!options.skipAuth) {
-    if (isAuthenticated()) {
-      console.log(`${stepLabel()} Authenticating...`);
-      console.log(`${green}✓${reset} Already authenticated\n`);
-    } else if (options.apiKey) {
+    if (options.apiKey) {
       console.log(`${stepLabel()} Authenticating with API key...`);
       try {
         saveCredentials({ apiKey: options.apiKey });
@@ -600,6 +727,9 @@ async function runNonInteractive(options: InitOptions): Promise<void> {
         );
         process.exit(1);
       }
+    } else if (isAuthenticated()) {
+      console.log(`${stepLabel()} Authenticating...`);
+      console.log(`${green}✓${reset} Already authenticated\n`);
     } else {
       console.log(`${stepLabel()} Authenticating with Firecrawl...`);
       try {
@@ -623,40 +753,42 @@ async function runNonInteractive(options: InitOptions): Promise<void> {
     }
   }
 
+  if (!options.skipInstall) {
+    console.log(`${stepLabel()} Installing firecrawl-cli globally...`);
+    try {
+      execSync('npm install -g firecrawl-cli', { stdio: 'inherit' });
+      console.log(`${green}✓${reset} CLI installed globally\n`);
+    } catch {
+      console.error(
+        `\n${dim}Failed to install firecrawl-cli globally. You may need sudo or fix npm permissions.${reset}`
+      );
+      console.log(
+        `${dim}Continuing — the CLI is already running via npx.${reset}\n`
+      );
+    }
+  }
+
+  let skillCount: number | null = null;
   if (!options.skipSkills) {
     console.log(
-      `${stepLabel()} Installing firecrawl skill for AI coding agents...`
+      `${stepLabel()} Installing firecrawl skills for AI coding agents...`
     );
-    if (hasNpx()) {
-      const args = buildSkillsInstallArgs({
-        agent: options.agent,
-        yes: true,
-        global: true,
-        includeNpxYes: true,
-      });
+    for (const repo of ALL_SKILL_REPOS) {
       try {
-        execSync(args.join(' '), { stdio: 'inherit' });
-        console.log(`${green}✓${reset} Skills installed\n`);
+        const count = await installSkillRepoQuiet(repo, options);
+        if (count != null) skillCount = (skillCount ?? 0) + count;
       } catch {
+        const retryCommand =
+          repo === 'firecrawl/firecrawl-workflows'
+            ? 'firecrawl setup workflows'
+            : 'firecrawl setup skills';
         console.error(
-          '\nFailed to install skills. You can retry with: firecrawl setup skills'
-        );
-        process.exit(1);
-      }
-    } else {
-      try {
-        await installSkillsNative();
-        console.log('');
-      } catch {
-        console.error(
-          '\nFailed to install skills. You can retry with: firecrawl setup skills'
+          `\n${dim}Failed to install skills from ${repo}. Retry with: ${retryCommand}${reset}`
         );
         process.exit(1);
       }
     }
   }
 
-  console.log(
-    `${green}${bold}Setup complete!${reset} Run ${dim}firecrawl --help${reset} to get started.\n`
-  );
+  printNextSteps(skillCount);
 }

@@ -2,9 +2,11 @@
  * Types and interfaces for the agent command
  */
 
+import type { AgentWebhookConfig } from '@mendable/firecrawl-js';
+
 export type AgentModel = 'spark-1-pro' | 'spark-1-mini';
 
-export type AgentStatus = 'processing' | 'completed' | 'failed';
+export type AgentStatus = 'processing' | 'completed' | 'failed' | 'cancelled';
 
 export interface AgentOptions {
   /** Natural language prompt describing the data to extract */
@@ -17,6 +19,10 @@ export interface AgentOptions {
   schema?: Record<string, unknown>;
   /** Path to JSON schema file */
   schemaFile?: string;
+  /** Webhook URL or webhook config */
+  webhook?: string | AgentWebhookConfig;
+  /** Cancel active agent job by ID */
+  cancel?: boolean;
   /** Maximum credits to spend (job fails if exceeded) */
   maxCredits?: number;
   /** Check status of existing agent job */

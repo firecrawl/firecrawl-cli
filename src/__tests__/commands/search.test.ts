@@ -19,21 +19,37 @@ vi.mock('../../utils/client', async () => {
 
 describe('executeSearch', () => {
   let mockClient: any;
+  let mockHttpPost: ReturnType<typeof vi.fn>;
+
+  // Wrap a payload in the axios envelope returned by `client.http.post`.
+  // Mirrors the `/v2/search` response shape:
+  //   { success, data: { web?, news?, images? }, id?, creditsUsed?, warning? }
+  const mockSearchResponse = (
+    payload: Record<string, any> | any[],
+    extras: Record<string, any> = {}
+  ) => {
+    const inner: Record<string, any> = {
+      success: true,
+      data: Array.isArray(payload) ? { web: payload } : payload,
+      ...extras,
+    };
+    return { data: inner };
+  };
 
   beforeEach(() => {
     setupTest();
-    // Initialize config with test API key
     initializeConfig({
       apiKey: 'test-api-key',
       apiUrl: 'https://api.firecrawl.dev',
     });
 
-    // Create mock client
+    mockHttpPost = vi.fn();
     mockClient = {
-      search: vi.fn(),
+      http: {
+        post: mockHttpPost,
+      },
     };
 
-    // Mock getClient to return our mock
     vi.mocked(getClient).mockReturnValue(mockClient as any);
   });
 
@@ -43,28 +59,33 @@ describe('executeSearch', () => {
   });
 
   describe('API call generation', () => {
-    it('should call search with correct query and default options', async () => {
-      const mockResponse = {
-        web: [
-          { url: 'https://example.com', title: 'Example', description: 'Test' },
-        ],
-      };
-      mockClient.search.mockResolvedValue(mockResponse);
+    it('should call /v2/search with correct query and default options', async () => {
+      mockHttpPost.mockResolvedValue(
+        mockSearchResponse({
+          web: [
+            {
+              url: 'https://example.com',
+              title: 'Example',
+              description: 'Test',
+            },
+          ],
+        })
+      );
 
       await executeSearch({
         query: 'test query',
       });
 
-      expect(mockClient.search).toHaveBeenCalledTimes(1);
-      expect(mockClient.search).toHaveBeenCalledWith('test query', {
+      expect(mockHttpPost).toHaveBeenCalledTimes(1);
+      expect(mockHttpPost).toHaveBeenCalledWith('/v2/search', {
+        query: 'test query',
         limit: undefined,
         integration: 'cli',
       });
     });
 
     it('should pass apiUrl to getClient when provided', async () => {
-      const mockResponse = { web: [] };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
 
       await executeSearch({
         query: 'test query',
@@ -78,8 +99,7 @@ describe('executeSearch', () => {
     });
 
     it('should pass both apiKey and apiUrl to getClient when provided', async () => {
-      const mockResponse = { web: [] };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
 
       await executeSearch({
         query: 'test query',
@@ -94,189 +114,193 @@ describe('executeSearch', () => {
     });
 
     it('should include limit option when provided', async () => {
-      const mockResponse = { web: [] };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
 
       await executeSearch({
         query: 'AI news',
         limit: 10,
       });
 
-      expect(mockClient.search).toHaveBeenCalledWith(
-        'AI news',
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
         expect.objectContaining({
+          query: 'AI news',
           limit: 10,
         })
       );
     });
 
     it('should include sources option when provided', async () => {
-      const mockResponse = { web: [], images: [], news: [] };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(
+        mockSearchResponse({ web: [], images: [], news: [] })
+      );
 
       await executeSearch({
         query: 'test query',
         sources: ['web', 'images', 'news'],
       });
 
-      expect(mockClient.search).toHaveBeenCalledWith(
-        'test query',
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
         expect.objectContaining({
+          query: 'test query',
           sources: [{ type: 'web' }, { type: 'images' }, { type: 'news' }],
         })
       );
     });
 
     it('should include single source correctly', async () => {
-      const mockResponse = { news: [] };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ news: [] }));
 
       await executeSearch({
         query: 'tech news',
         sources: ['news'],
       });
 
-      expect(mockClient.search).toHaveBeenCalledWith(
-        'tech news',
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
         expect.objectContaining({
+          query: 'tech news',
           sources: [{ type: 'news' }],
         })
       );
     });
 
     it('should include categories option when provided', async () => {
-      const mockResponse = { web: [] };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
 
       await executeSearch({
         query: 'web scraping python',
         categories: ['github'],
       });
 
-      expect(mockClient.search).toHaveBeenCalledWith(
-        'web scraping python',
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
         expect.objectContaining({
+          query: 'web scraping python',
           categories: [{ type: 'github' }],
         })
       );
     });
 
     it('should include multiple categories correctly', async () => {
-      const mockResponse = { web: [] };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
 
       await executeSearch({
         query: 'transformer architecture',
         categories: ['research', 'pdf'],
       });
 
-      expect(mockClient.search).toHaveBeenCalledWith(
-        'transformer architecture',
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
         expect.objectContaining({
+          query: 'transformer architecture',
           categories: [{ type: 'research' }, { type: 'pdf' }],
         })
       );
     });
 
     it('should include tbs (time-based search) option when provided', async () => {
-      const mockResponse = { web: [] };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
 
       await executeSearch({
         query: 'AI announcements',
         tbs: 'qdr:d', // Past day
       });
 
-      expect(mockClient.search).toHaveBeenCalledWith(
-        'AI announcements',
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
         expect.objectContaining({
+          query: 'AI announcements',
           tbs: 'qdr:d',
         })
       );
     });
 
     it('should include location option when provided', async () => {
-      const mockResponse = { web: [] };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
 
       await executeSearch({
         query: 'restaurants',
         location: 'San Francisco,California,United States',
       });
 
-      expect(mockClient.search).toHaveBeenCalledWith(
-        'restaurants',
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
         expect.objectContaining({
+          query: 'restaurants',
           location: 'San Francisco,California,United States',
         })
       );
     });
 
     it('should include country option when provided', async () => {
-      const mockResponse = { web: [] };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
 
       await executeSearch({
         query: 'local news',
         country: 'DE',
       });
 
-      expect(mockClient.search).toHaveBeenCalledWith(
-        'local news',
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
         expect.objectContaining({
+          query: 'local news',
           country: 'DE',
         })
       );
     });
 
     it('should include timeout option when provided', async () => {
-      const mockResponse = { web: [] };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
 
       await executeSearch({
         query: 'test query',
         timeout: 30000,
       });
 
-      expect(mockClient.search).toHaveBeenCalledWith(
-        'test query',
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
         expect.objectContaining({
+          query: 'test query',
           timeout: 30000,
         })
       );
     });
 
     it('should include ignoreInvalidUrls option when provided', async () => {
-      const mockResponse = { web: [] };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
 
       await executeSearch({
         query: 'test query',
         ignoreInvalidUrls: true,
       });
 
-      expect(mockClient.search).toHaveBeenCalledWith(
-        'test query',
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
         expect.objectContaining({
+          query: 'test query',
           ignoreInvalidURLs: true,
         })
       );
     });
 
     it('should include scrape options when scrape is enabled', async () => {
-      const mockResponse = {
-        web: [{ url: 'https://example.com', markdown: '# Test' }],
-      };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(
+        mockSearchResponse({
+          web: [{ url: 'https://example.com', markdown: '# Test' }],
+        })
+      );
 
       await executeSearch({
         query: 'firecrawl tutorials',
         scrape: true,
       });
 
-      expect(mockClient.search).toHaveBeenCalledWith(
-        'firecrawl tutorials',
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
         expect.objectContaining({
+          query: 'firecrawl tutorials',
           scrapeOptions: {
             formats: [{ type: 'markdown' }],
           },
@@ -285,10 +309,11 @@ describe('executeSearch', () => {
     });
 
     it('should include custom scrape formats when provided', async () => {
-      const mockResponse = {
-        web: [{ url: 'https://example.com', markdown: '# Test', links: [] }],
-      };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(
+        mockSearchResponse({
+          web: [{ url: 'https://example.com', markdown: '# Test', links: [] }],
+        })
+      );
 
       await executeSearch({
         query: 'API docs',
@@ -296,9 +321,10 @@ describe('executeSearch', () => {
         scrapeFormats: ['markdown', 'links'],
       });
 
-      expect(mockClient.search).toHaveBeenCalledWith(
-        'API docs',
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
         expect.objectContaining({
+          query: 'API docs',
           scrapeOptions: {
             formats: [{ type: 'markdown' }, { type: 'links' }],
           },
@@ -307,10 +333,11 @@ describe('executeSearch', () => {
     });
 
     it('should include onlyMainContent in scrape options when provided', async () => {
-      const mockResponse = {
-        web: [{ url: 'https://example.com', markdown: '# Test' }],
-      };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(
+        mockSearchResponse({
+          web: [{ url: 'https://example.com', markdown: '# Test' }],
+        })
+      );
 
       await executeSearch({
         query: 'test query',
@@ -318,9 +345,10 @@ describe('executeSearch', () => {
         onlyMainContent: true,
       });
 
-      expect(mockClient.search).toHaveBeenCalledWith(
-        'test query',
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
         expect.objectContaining({
+          query: 'test query',
           scrapeOptions: {
             formats: [{ type: 'markdown' }],
             onlyMainContent: true,
@@ -330,11 +358,12 @@ describe('executeSearch', () => {
     });
 
     it('should combine all options correctly', async () => {
-      const mockResponse = {
-        web: [{ url: 'https://example.com', markdown: '# Test' }],
-        news: [{ url: 'https://news.example.com', title: 'News' }],
-      };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(
+        mockSearchResponse({
+          web: [{ url: 'https://example.com', markdown: '# Test' }],
+          news: [{ url: 'https://news.example.com', title: 'News' }],
+        })
+      );
 
       await executeSearch({
         query: 'comprehensive test',
@@ -350,7 +379,8 @@ describe('executeSearch', () => {
         onlyMainContent: true,
       });
 
-      expect(mockClient.search).toHaveBeenCalledWith('comprehensive test', {
+      expect(mockHttpPost).toHaveBeenCalledWith('/v2/search', {
+        query: 'comprehensive test',
         limit: 20,
         integration: 'cli',
         sources: [{ type: 'web' }, { type: 'news' }],
@@ -369,45 +399,39 @@ describe('executeSearch', () => {
 
   describe('Response handling', () => {
     it('should return success result with web results', async () => {
-      const mockResponse = {
-        web: [
-          {
-            url: 'https://example.com',
-            title: 'Example',
-            description: 'Test description',
-          },
-          {
-            url: 'https://example2.com',
-            title: 'Example 2',
-            description: 'Another test',
-          },
-        ],
-      };
-      mockClient.search.mockResolvedValue(mockResponse);
+      const web = [
+        {
+          url: 'https://example.com',
+          title: 'Example',
+          description: 'Test description',
+        },
+        {
+          url: 'https://example2.com',
+          title: 'Example 2',
+          description: 'Another test',
+        },
+      ];
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web }));
 
       const result = await executeSearch({
         query: 'test query',
       });
 
       expect(result.success).toBe(true);
-      expect(result.data).toEqual({
-        web: mockResponse.web,
-      });
+      expect(result.data).toEqual({ web });
     });
 
     it('should return success result with image results', async () => {
-      const mockResponse = {
-        images: [
-          {
-            imageUrl: 'https://example.com/image.jpg',
-            url: 'https://example.com',
-            title: 'Image 1',
-            imageWidth: 800,
-            imageHeight: 600,
-          },
-        ],
-      };
-      mockClient.search.mockResolvedValue(mockResponse);
+      const images = [
+        {
+          imageUrl: 'https://example.com/image.jpg',
+          url: 'https://example.com',
+          title: 'Image 1',
+          imageWidth: 800,
+          imageHeight: 600,
+        },
+      ];
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ images }));
 
       const result = await executeSearch({
         query: 'landscapes',
@@ -415,23 +439,19 @@ describe('executeSearch', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(result.data).toEqual({
-        images: mockResponse.images,
-      });
+      expect(result.data).toEqual({ images });
     });
 
     it('should return success result with news results', async () => {
-      const mockResponse = {
-        news: [
-          {
-            url: 'https://news.example.com',
-            title: 'Breaking News',
-            snippet: 'Something happened',
-            date: '2024-01-15',
-          },
-        ],
-      };
-      mockClient.search.mockResolvedValue(mockResponse);
+      const news = [
+        {
+          url: 'https://news.example.com',
+          title: 'Breaking News',
+          snippet: 'Something happened',
+          date: '2024-01-15',
+        },
+      ];
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ news }));
 
       const result = await executeSearch({
         query: 'tech news',
@@ -439,13 +459,11 @@ describe('executeSearch', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(result.data).toEqual({
-        news: mockResponse.news,
-      });
+      expect(result.data).toEqual({ news });
     });
 
     it('should handle combined results from multiple sources', async () => {
-      const mockResponse = {
+      const payload = {
         web: [{ url: 'https://example.com', title: 'Web Result' }],
         images: [
           {
@@ -455,7 +473,7 @@ describe('executeSearch', () => {
         ],
         news: [{ url: 'https://news.example.com', title: 'News' }],
       };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(mockSearchResponse(payload));
 
       const result = await executeSearch({
         query: 'machine learning',
@@ -463,24 +481,21 @@ describe('executeSearch', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(result.data).toEqual({
-        web: mockResponse.web,
-        images: mockResponse.images,
-        news: mockResponse.news,
-      });
+      expect(result.data).toEqual(payload);
     });
 
     it('should handle response with scraped content', async () => {
-      const mockResponse = {
-        web: [
-          {
-            url: 'https://example.com',
-            title: 'Example',
-            markdown: '# Page Content\n\nThis is the content.',
-          },
-        ],
-      };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(
+        mockSearchResponse({
+          web: [
+            {
+              url: 'https://example.com',
+              title: 'Example',
+              markdown: '# Page Content\n\nThis is the content.',
+            },
+          ],
+        })
+      );
 
       const result = await executeSearch({
         query: 'test',
@@ -493,45 +508,13 @@ describe('executeSearch', () => {
       );
     });
 
-    it('should handle nested data response format', async () => {
-      const mockResponse = {
-        data: {
-          web: [{ url: 'https://example.com', title: 'Test' }],
-        },
-      };
-      mockClient.search.mockResolvedValue(mockResponse);
-
-      const result = await executeSearch({
-        query: 'test',
-      });
-
-      expect(result.success).toBe(true);
-      expect(result.data?.web).toEqual([
-        { url: 'https://example.com', title: 'Test' },
-      ]);
-    });
-
-    it('should handle array response format (legacy)', async () => {
-      const mockResponse = [
-        { url: 'https://example.com', title: 'Test 1' },
-        { url: 'https://example2.com', title: 'Test 2' },
-      ];
-      mockClient.search.mockResolvedValue(mockResponse);
-
-      const result = await executeSearch({
-        query: 'test',
-      });
-
-      expect(result.success).toBe(true);
-      expect(result.data?.web).toEqual(mockResponse);
-    });
-
     it('should include warning in result when present', async () => {
-      const mockResponse = {
-        web: [{ url: 'https://example.com', title: 'Test' }],
-        warning: 'Some warning message',
-      };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(
+        mockSearchResponse(
+          { web: [{ url: 'https://example.com', title: 'Test' }] },
+          { warning: 'Some warning message' }
+        )
+      );
 
       const result = await executeSearch({
         query: 'test',
@@ -542,11 +525,12 @@ describe('executeSearch', () => {
     });
 
     it('should include id in result when present', async () => {
-      const mockResponse = {
-        web: [{ url: 'https://example.com', title: 'Test' }],
-        id: 'search-123',
-      };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(
+        mockSearchResponse(
+          { web: [{ url: 'https://example.com', title: 'Test' }] },
+          { id: 'search-123' }
+        )
+      );
 
       const result = await executeSearch({
         query: 'test',
@@ -557,11 +541,12 @@ describe('executeSearch', () => {
     });
 
     it('should include creditsUsed in result when present', async () => {
-      const mockResponse = {
-        web: [{ url: 'https://example.com', title: 'Test' }],
-        creditsUsed: 5,
-      };
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(
+        mockSearchResponse(
+          { web: [{ url: 'https://example.com', title: 'Test' }] },
+          { creditsUsed: 5 }
+        )
+      );
 
       const result = await executeSearch({
         query: 'test',
@@ -572,8 +557,7 @@ describe('executeSearch', () => {
     });
 
     it('should handle empty results', async () => {
-      const mockResponse = {};
-      mockClient.search.mockResolvedValue(mockResponse);
+      mockHttpPost.mockResolvedValue(mockSearchResponse({}));
 
       const result = await executeSearch({
         query: 'nonexistent content xyz123',
@@ -585,7 +569,7 @@ describe('executeSearch', () => {
 
     it('should return error result when search fails', async () => {
       const errorMessage = 'API Error: Rate limit exceeded';
-      mockClient.search.mockRejectedValue(new Error(errorMessage));
+      mockHttpPost.mockRejectedValue(new Error(errorMessage));
 
       const result = await executeSearch({
         query: 'test query',
@@ -598,7 +582,7 @@ describe('executeSearch', () => {
     });
 
     it('should handle non-Error exceptions', async () => {
-      mockClient.search.mockRejectedValue('String error');
+      mockHttpPost.mockRejectedValue('String error');
 
       const result = await executeSearch({
         query: 'test query',
@@ -611,71 +595,71 @@ describe('executeSearch', () => {
 
   describe('Time-based search parameters', () => {
     it('should support qdr:h for past hour', async () => {
-      mockClient.search.mockResolvedValue({ web: [] });
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
 
       await executeSearch({
         query: 'breaking news',
         tbs: 'qdr:h',
       });
 
-      expect(mockClient.search).toHaveBeenCalledWith(
-        'breaking news',
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
         expect.objectContaining({ tbs: 'qdr:h' })
       );
     });
 
     it('should support qdr:d for past day', async () => {
-      mockClient.search.mockResolvedValue({ web: [] });
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
 
       await executeSearch({
         query: 'AI announcements',
         tbs: 'qdr:d',
       });
 
-      expect(mockClient.search).toHaveBeenCalledWith(
-        'AI announcements',
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
         expect.objectContaining({ tbs: 'qdr:d' })
       );
     });
 
     it('should support qdr:w for past week', async () => {
-      mockClient.search.mockResolvedValue({ web: [] });
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
 
       await executeSearch({
         query: 'tech news',
         tbs: 'qdr:w',
       });
 
-      expect(mockClient.search).toHaveBeenCalledWith(
-        'tech news',
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
         expect.objectContaining({ tbs: 'qdr:w' })
       );
     });
 
     it('should support qdr:m for past month', async () => {
-      mockClient.search.mockResolvedValue({ web: [] });
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
 
       await executeSearch({
         query: 'startup funding',
         tbs: 'qdr:m',
       });
 
-      expect(mockClient.search).toHaveBeenCalledWith(
-        'startup funding',
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
         expect.objectContaining({ tbs: 'qdr:m' })
       );
     });
 
     it('should support qdr:y for past year', async () => {
-      mockClient.search.mockResolvedValue({ web: [] });
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
 
       await executeSearch({
         query: 'yearly review',
         tbs: 'qdr:y',
       });
 
-      expect(mockClient.search).toHaveBeenCalledWith(
-        'yearly review',
+      expect(mockHttpPost).toHaveBeenCalledWith(
+        '/v2/search',
         expect.objectContaining({ tbs: 'qdr:y' })
       );
     });
@@ -688,7 +672,9 @@ describe('executeSearch', () => {
         'images',
         'news',
       ];
-      mockClient.search.mockResolvedValue({ web: [], images: [], news: [] });
+      mockHttpPost.mockResolvedValue(
+        mockSearchResponse({ web: [], images: [], news: [] })
+      );
 
       for (const source of sourceList) {
         const result = await executeSearch({
@@ -705,7 +691,7 @@ describe('executeSearch', () => {
         'research',
         'pdf',
       ];
-      mockClient.search.mockResolvedValue({ web: [] });
+      mockHttpPost.mockResolvedValue(mockSearchResponse({ web: [] }));
 
       for (const category of categoryList) {
         const result = await executeSearch({
@@ -725,9 +711,9 @@ describe('executeSearch', () => {
       ];
 
       for (const format of formatList) {
-        mockClient.search.mockResolvedValue({
-          web: [{ url: 'https://example.com' }],
-        });
+        mockHttpPost.mockResolvedValue(
+          mockSearchResponse({ web: [{ url: 'https://example.com' }] })
+        );
         const result = await executeSearch({
           query: 'test',
           scrape: true,

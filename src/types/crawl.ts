@@ -45,6 +45,12 @@ export interface CrawlOptions {
   delay?: number;
   /** Maximum concurrency */
   maxConcurrency?: number;
+  /** Pass-through options to scrape phase */
+  scrapeOptions?: Record<string, unknown>;
+  /** Webhook URL or webhook config */
+  webhook?: string | Record<string, unknown>;
+  /** Cancel active crawl job */
+  cancel?: boolean;
 }
 
 export interface CrawlResult {

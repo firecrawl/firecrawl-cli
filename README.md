@@ -1,6 +1,6 @@
 # 🔥 Firecrawl CLI
 
-Command-line interface for Firecrawl. Scrape, crawl, and extract data from any website directly from your terminal.
+Command-line interface for Firecrawl. Search, scrape, interact, crawl, map, and run agent jobs directly from your terminal.
 
 ## Installation
 
@@ -11,34 +11,43 @@ npm install -g firecrawl-cli
 Or set up everything in one command (install CLI globally, authenticate, and add skills across all detected coding editors):
 
 ```bash
-npx -y firecrawl-cli@latest init -y --browser
+npx -y firecrawl-cli@1.16.2 init -y --browser
 ```
 
 - `-y` runs setup non-interactively
 - `--browser` opens the browser for Firecrawl authentication automatically
 - skills install globally to every detected AI coding agent by default
 
-### Setup Skills and MCP
+### Setup Skills, Workflows, and MCP
 
-If you are using an AI coding agent like Claude Code, you can also install the skill individually with:
+If you are using an AI coding agent like Claude Code, you can also install the skills manually:
 
 ```bash
 firecrawl setup skills
+firecrawl setup workflows
 ```
 
-This installs skills globally across all detected coding editors by default. Use `--agent <agent>` to scope it to one editor.
+These install globally across all detected coding editors by default. Use `--agent <agent>` to scope either command to one editor.
+
+### Agent skills
+
+The init command installs all Firecrawl agent skill segments into AI coding agents (Cursor, Claude Code, Windsurf, etc.):
+
+- **CLI skills** — teach agents how to use the Firecrawl CLI for live web work (search, scrape, interact, map, crawl, agent)
+- **Build skills** — teach agents how to integrate Firecrawl into application code (choose endpoints, wire SDKs, set up API keys)
+- **Workflow skills** — teach agents how to produce Firecrawl-powered deliverables such as research briefs, SEO audits, QA reports, lead lists, knowledge bases, and design-system extraction
+
+To reinstall skills manually:
+
+```bash
+firecrawl setup skills
+firecrawl setup workflows
+```
 
 To install the Firecrawl MCP server into your editors (Cursor, Claude Code, VS Code, etc.):
 
 ```bash
 firecrawl setup mcp
-```
-
-Or directly via npx:
-
-```bash
-npx skills add firecrawl/cli --full-depth --global --all
-npx add-mcp "npx -y firecrawl-mcp" --name firecrawl
 ```
 
 ## Quick Start
@@ -55,7 +64,7 @@ On first run, you'll be prompted to authenticate:
 
 ```
   🔥 firecrawl cli
-  Turn websites into LLM-ready data
+  Search, scrape, and interact with the web
 
 Welcome! To get started, authenticate with your Firecrawl account.
 
@@ -146,6 +155,12 @@ firecrawl scrape https://firecrawl.dev https://firecrawl.dev/blog https://docs.f
 | `--include-tags <tags>`    | Only include specific HTML tags                         |
 | `--exclude-tags <tags>`    | Exclude specific HTML tags                              |
 | `--max-age <milliseconds>` | Maximum age of cached content in milliseconds           |
+| `--lockdown`               | Enable lockdown mode for the scrape                     |
+| `--schema <json>`          | JSON schema for structured extraction                   |
+| `--schema-file <path>`     | Path to JSON schema file for structured extraction      |
+| `--actions <json>`         | JSON actions array to run during scrape                 |
+| `--actions-file <path>`    | Path to JSON actions file                               |
+| `--proxy <proxy>`          | Proxy mode for scraping (for example, `auto`, `basic`)  |
 | `-o, --output <path>`      | Save output to file                                     |
 | `--json`                   | Output as JSON format                                   |
 | `--pretty`                 | Pretty print JSON output                                |
@@ -197,7 +212,7 @@ Search the web and optionally scrape content from search results.
 
 ```bash
 # Basic search
-firecrawl search "firecrawl web scraping"
+firecrawl search "firecrawl"
 
 # Limit results
 firecrawl search "AI news" --limit 10
@@ -212,7 +227,7 @@ firecrawl search "landscape photography" --sources images
 firecrawl search "machine learning" --sources web,news,images
 
 # Filter by category (GitHub, research papers, PDFs)
-firecrawl search "web scraping python" --categories github
+firecrawl search "web data python" --categories github
 firecrawl search "transformer architecture" --categories research
 firecrawl search "machine learning" --categories github,research
 
@@ -229,7 +244,7 @@ firecrawl search "firecrawl tutorials" --scrape
 firecrawl search "API documentation" --scrape --scrape-formats markdown,links
 
 # Output as pretty JSON
-firecrawl search "web scraping"
+firecrawl search "AI data tools"
 ```
 
 #### Search Options
@@ -257,7 +272,7 @@ firecrawl search "web scraping"
 firecrawl search "React Server Components" --tbs qdr:m --limit 10
 
 # Find GitHub repositories
-firecrawl search "web scraping library" --categories github --limit 20
+firecrawl search "web data library" --categories github --limit 20
 
 # Search and get full content
 firecrawl search "firecrawl documentation" --scrape --scrape-formats markdown --json -o results.json
@@ -346,23 +361,27 @@ firecrawl crawl https://example.com --limit 100 --max-depth 3
 
 #### Crawl Options
 
-| Option                      | Description                              |
-| --------------------------- | ---------------------------------------- |
-| `--wait`                    | Wait for crawl to complete               |
-| `--progress`                | Show progress while waiting              |
-| `--limit <n>`               | Maximum pages to crawl                   |
-| `--max-depth <n>`           | Maximum crawl depth                      |
-| `--include-paths <paths>`   | Only crawl matching paths                |
-| `--exclude-paths <paths>`   | Skip matching paths                      |
-| `--sitemap <mode>`          | `include`, `skip`, or `only`             |
-| `--allow-subdomains`        | Include subdomains                       |
-| `--allow-external-links`    | Follow external links                    |
-| `--crawl-entire-domain`     | Crawl entire domain                      |
-| `--ignore-query-parameters` | Treat URLs with different params as same |
-| `--delay <ms>`              | Delay between requests                   |
-| `--max-concurrency <n>`     | Max concurrent requests                  |
-| `--timeout <seconds>`       | Timeout when waiting                     |
-| `--poll-interval <seconds>` | Status check interval                    |
+| Option                         | Description                              |
+| ------------------------------ | ---------------------------------------- |
+| `--wait`                       | Wait for crawl to complete               |
+| `--progress`                   | Show progress while waiting              |
+| `--limit <n>`                  | Maximum pages to crawl                   |
+| `--max-depth <n>`              | Maximum crawl depth                      |
+| `--include-paths <paths>`      | Only crawl matching paths                |
+| `--exclude-paths <paths>`      | Skip matching paths                      |
+| `--sitemap <mode>`             | `include`, `skip`, or `only`             |
+| `--allow-subdomains`           | Include subdomains                       |
+| `--allow-external-links`       | Follow external links                    |
+| `--crawl-entire-domain`        | Crawl entire domain                      |
+| `--ignore-query-parameters`    | Treat URLs with different params as same |
+| `--delay <ms>`                 | Delay between requests                   |
+| `--max-concurrency <n>`        | Max concurrent requests                  |
+| `--scrape-options <json>`      | JSON scrape options passed to each page  |
+| `--scrape-options-file <path>` | Path to scrape options JSON file         |
+| `--webhook <url-or-json>`      | Webhook URL or configuration             |
+| `--cancel`                     | Cancel an active crawl job by job ID     |
+| `--timeout <seconds>`          | Timeout when waiting                     |
+| `--poll-interval <seconds>`    | Status check interval                    |
 
 #### Examples
 
@@ -433,7 +452,9 @@ firecrawl agent <job-id> --wait
 | `--schema <json>`           | JSON schema for structured output (inline JSON string)        |
 | `--schema-file <path>`      | Path to JSON schema file for structured output                |
 | `--max-credits <number>`    | Maximum credits to spend (job fails if exceeded)              |
+| `--webhook <url-or-json>`   | Webhook URL or configuration                                  |
 | `--status`                  | Check status of existing agent job                            |
+| `--cancel`                  | Cancel an active agent job by job ID                          |
 | `--wait`                    | Wait for agent to complete before returning results           |
 | `--poll-interval <seconds>` | Polling interval in seconds when waiting (default: 5)         |
 | `--timeout <seconds>`       | Timeout in seconds when waiting (default: no timeout)         |
@@ -465,80 +486,53 @@ firecrawl agent abc123-def456-... --wait --poll-interval 10
 
 ---
 
-### `browser` - Browser sandbox sessions (Deprecated)
+### `interact` - Interact with scraped pages
 
-> **Deprecated:** Prefer `scrape` + `interact` instead. Interact lets you scrape a page and then click, fill forms, and navigate without managing sessions manually. See the `interact` command.
-
-Launch and control cloud browser sessions. By default, commands are sent to agent-browser (pre-installed in every sandbox). Use `--python` or `--node` to run Playwright code directly instead.
+Scrape a page, then interact with it in a live browser session using natural language or code. No manual session management required.
 
 ```bash
-# 1. Launch a session
-firecrawl browser launch --stream
+# 1. Scrape a page first
+firecrawl scrape https://example.com
 
-# 2. Execute agent-browser commands (default)
-firecrawl browser execute "open https://example.com"
-firecrawl browser execute "snapshot"
-firecrawl browser execute "click @e5"
-firecrawl browser execute "scrape"
+# 2. Interact with it
+firecrawl interact "Click the pricing tab"
+firecrawl interact "Fill in the email field with test@example.com"
+firecrawl interact "Extract the pricing table"
 
-# 3. Execute Playwright Python or JavaScript
-firecrawl browser execute --python "await page.goto('https://example.com'); print(await page.title())"
-firecrawl browser execute --node "await page.goto('https://example.com'); await page.title()"
+# 3. Code execution (Playwright)
+firecrawl interact -c "await page.title()"
+firecrawl interact -c "print(await page.title())" --python
 
-# 4. List sessions
-firecrawl browser list
-
-# 5. Close
-firecrawl browser close
+# 4. Stop the session
+firecrawl interact stop
 ```
 
-#### Launch Options
+#### Interact Options
 
-| Option                       | Description                                 |
-| ---------------------------- | ------------------------------------------- |
-| `--ttl <seconds>`            | Total session TTL in seconds (default: 300) |
-| `--ttl-inactivity <seconds>` | Inactivity TTL in seconds                   |
-| `--stream`                   | Enable live view streaming                  |
-| `-o, --output <path>`        | Save output to file                         |
-| `--json`                     | Output as JSON format                       |
+| Option                 | Description                                    |
+| ---------------------- | ---------------------------------------------- |
+| `-p, --prompt <text>`  | AI prompt (alternative to positional argument) |
+| `-c, --code <code>`    | Code to execute in the browser sandbox         |
+| `-s, --scrape-id <id>` | Scrape job ID (default: last scrape)           |
+| `--python`             | Execute code as Python/Playwright              |
+| `--node`               | Execute code as Node.js/Playwright (default)   |
+| `--bash`               | Execute code as Bash                           |
+| `--timeout <seconds>`  | Timeout in seconds (1-300, default: 30)        |
+| `-o, --output <path>`  | Save output to file                            |
+| `--json`               | Output as JSON format                          |
 
-#### Execute Options
+#### Profiles
 
-| Option                | Description                                                        |
-| --------------------- | ------------------------------------------------------------------ |
-| `--python`            | Execute as Playwright Python code                                  |
-| `--node`              | Execute as Playwright JavaScript code                              |
-| `--bash`              | Execute bash commands in the sandbox (agent-browser pre-installed) |
-| `--session <id>`      | Target a specific session (auto-saved on launch)                   |
-| `-o, --output <path>` | Save output to file                                                |
-| `--json`              | Output as JSON format                                              |
-
-By default (no flag), commands are sent to agent-browser. `--python`, `--node`, and `--bash` are mutually exclusive.
-
-#### Examples
+Use `--profile` on the scrape to persist browser state across scrapes:
 
 ```bash
-# agent-browser commands (default mode)
-firecrawl browser execute "open https://example.com"
-firecrawl browser execute "snapshot"
-firecrawl browser execute "click @e5"
-firecrawl browser execute "fill @e3 'search query'"
-firecrawl browser execute "scrape"
+# Login and save state
+firecrawl scrape "https://app.example.com/login" --profile my-app
+firecrawl interact "Fill in email and click login"
 
-# Playwright Python
-firecrawl browser execute --python "await page.goto('https://example.com'); print(await page.title())"
-
-# Playwright JavaScript
-firecrawl browser execute --node "await page.goto('https://example.com'); await page.title()"
-
-# Bash (arbitrary commands in the sandbox)
-firecrawl browser execute --bash "ls /tmp"
-
-# Launch with extended TTL
-firecrawl browser launch --ttl 900 --ttl-inactivity 120
-
-# JSON output
-firecrawl browser execute --json "snapshot"
+# Come back authenticated later
+firecrawl scrape "https://app.example.com/dashboard" --profile my-app
+firecrawl interact "Extract the dashboard data"
 ```
 
 ---
@@ -600,7 +594,7 @@ firecrawl --status
 ```
 
 ```
-  🔥 firecrawl cli v1.4.0
+  🔥 firecrawl cli v1.16.2
 
   ● Authenticated via stored credentials
   Concurrency: 0/100 jobs (parallel scrape limit)
@@ -678,83 +672,6 @@ firecrawl scrape https://example.com -o output.md
 
 ---
 
-## `download` - Bulk Site Download
-
-A convenience command that combines `map` + `scrape` to save a site as local files. Maps the site first to discover pages, then scrapes each one into nested directories under `.firecrawl/`. All [scrape options](#scrape-options) work with download. Run without flags for an interactive wizard that walks you through format, screenshot, and path selection.
-
-```bash
-# Interactive wizard (picks format, screenshots, paths for you)
-firecrawl download https://docs.firecrawl.dev
-
-# Download with screenshots
-firecrawl download https://docs.firecrawl.dev --screenshot --limit 20 -y
-
-# Full page screenshots
-firecrawl download https://docs.firecrawl.dev --full-page-screenshot --limit 20 -y
-
-# Multiple formats (each saved as its own file per page)
-firecrawl download https://docs.firecrawl.dev --format markdown,links --screenshot --limit 20 -y
-# Creates per page: index.md + links.txt + screenshot.png
-
-# Download as HTML
-firecrawl download https://docs.firecrawl.dev --html --limit 20 -y
-
-# Main content only
-firecrawl download https://docs.firecrawl.dev --only-main-content --limit 50 -y
-
-# Filter to specific paths
-firecrawl download https://docs.firecrawl.dev --include-paths "/features,/sdks"
-
-# Skip localized pages
-firecrawl download https://docs.firecrawl.dev --exclude-paths "/zh,/ja,/fr,/es,/pt-BR"
-
-# Include subdomains
-firecrawl download https://firecrawl.dev --allow-subdomains
-
-# Combine everything
-firecrawl download https://docs.firecrawl.dev \
-  --include-paths "/features,/sdks" \
-  --exclude-paths "/zh,/ja,/fr,/es,/pt-BR" \
-  --only-main-content \
-  --screenshot \
-  -y
-```
-
-#### Download Options
-
-| Option                    | Description                                    |
-| ------------------------- | ---------------------------------------------- |
-| `--limit <number>`        | Max pages to download                          |
-| `--search <query>`        | Filter pages by search query                   |
-| `--include-paths <paths>` | Only download matching paths (comma-separated) |
-| `--exclude-paths <paths>` | Skip matching paths (comma-separated)          |
-| `--allow-subdomains`      | Include subdomains when mapping                |
-| `-y, --yes`               | Skip confirmation prompt and wizard            |
-
-All [scrape options](#scrape-options) also work with download (formats, screenshots, tags, geo-targeting, etc.)
-
-#### Output Structure
-
-Each format is saved as its own file per page:
-
-```
-.firecrawl/
-  docs.firecrawl.dev/
-    features/
-      scrape/
-        index.md           # markdown content
-        links.txt          # one link per line
-        screenshot.png     # actual PNG image
-      crawl/
-        index.md
-        screenshot.png
-    sdks/
-      python/
-        index.md
-```
-
----
-
 ## Telemetry
 
 The CLI collects anonymous usage data during authentication to help improve the product:
@@ -772,130 +689,30 @@ export FIRECRAWL_NO_TELEMETRY=1
 
 ---
 
-## Experimental: AI Workflows
+## Experimental
 
-Launch pre-built AI workflows that combine Firecrawl's web capabilities with your coding agent. One command spins up an interactive session with the right system prompt, tools, and instructions -- like `ollama run` but for web research agents. All workflows spawn parallel subagents to divide the work and finish faster.
+Experimental commands live under `firecrawl experimental` (alias: `firecrawl x`).
 
-```bash
-# Claude Code (available now)
-firecrawl claude competitor-analysis
-firecrawl claude deep-research
-firecrawl claude lead-research
-firecrawl claude seo-audit
-firecrawl claude qa
+### `download` - Bulk Site Download
 
-# Codex and OpenCode -- coming soon
-firecrawl codex competitor-analysis
-firecrawl opencode competitor-analysis
-```
-
-See the full documentation: **[Experimental Workflows ->](src/commands/experimental/README.md)**
-
----
-
-## Testing Workflows Locally
-
-After building the CLI (`pnpm run build`), every workflow works with all three backends — just swap the command name:
+Combines `map` + `scrape` to save a site as local files under `.firecrawl/`.
 
 ```bash
-# Help
-firecrawl claude --help
-firecrawl codex --help
-firecrawl opencode --help
+firecrawl x download https://docs.firecrawl.dev
+firecrawl x download https://docs.firecrawl.dev --screenshot --limit 20 -y
+firecrawl x download https://docs.firecrawl.dev --include-paths "/features,/sdks" -y
 ```
 
-### QA Testing
+### Workflow Skills
+
+The old experimental AI workflow commands have moved to the NPX-installable
+[`firecrawl/firecrawl-workflows`](https://github.com/firecrawl/firecrawl-workflows)
+skills package. Workflow skills infer from the user's request first and only ask
+short clarifying questions when required inputs are missing. Install them with:
 
 ```bash
-firecrawl claude qa https://myapp.com
-firecrawl codex qa https://myapp.com
-firecrawl opencode qa https://myapp.com
+firecrawl setup workflows
 ```
-
-### Product Demo Walkthrough
-
-```bash
-firecrawl claude demo https://resend.com
-firecrawl codex demo https://neon.tech
-firecrawl opencode demo https://linear.app
-```
-
-### Competitor Analysis
-
-```bash
-firecrawl claude competitor-analysis https://firecrawl.dev
-firecrawl codex competitor-analysis https://crawlee.dev
-firecrawl opencode competitor-analysis https://apify.com
-```
-
-### Deep Research
-
-```bash
-firecrawl claude deep-research "RAG pipeline data ingestion tools"
-firecrawl codex deep-research "web scraping best practices 2025"
-firecrawl opencode deep-research "browser automation frameworks comparison"
-```
-
-### Other Workflows
-
-```bash
-# Lead research
-firecrawl claude lead-research "Vercel"
-firecrawl codex lead-research "Stripe"
-
-# SEO audit
-firecrawl opencode seo-audit https://example.com
-
-# Knowledge base
-firecrawl claude knowledge-base https://docs.langchain.com
-
-# Research papers
-firecrawl codex research-papers "web scraping compliance HIPAA"
-
-# Shopping
-firecrawl claude shop "best mechanical keyboard for developers"
-```
-
-### Natural Language (no workflow name)
-
-```bash
-firecrawl claude "scrape the firecrawl docs and summarize"
-firecrawl codex "find pricing for crawlee vs scrapy"
-firecrawl opencode "compare Firecrawl and Apify features"
-```
-
-Add `-y` to any command to auto-approve tool permissions (maps to `--dangerously-skip-permissions` for Claude, `--full-auto` for Codex).
-
-### Live View
-
-Use `firecrawl scrape <url>` + `firecrawl interact` to interact with pages. For advanced use cases requiring a raw CDP session, you can still use `firecrawl browser launch --json` to get a live view URL:
-
-```bash
-# Preferred: scrape + interact workflow
-firecrawl scrape https://myapp.com
-firecrawl interact --prompt "Click on the login button and fill in the form"
-
-# Advanced: Launch a browser session and grab the live view URL
-LIVE_URL=$(firecrawl browser launch --json | jq -r '.liveViewUrl')
-
-# Pass it to Claude Code
-claude --append-system-prompt "A cloud browser session is running. Live view: $LIVE_URL -- use \`firecrawl interact\` to interact with scraped pages." \
-  --dangerously-skip-permissions \
-  "QA test https://myapp.com"
-
-# Or use the built-in workflow commands
-firecrawl claude demo https://resend.com
-```
-
-### Prerequisites
-
-Each backend requires its CLI to be installed separately:
-
-| Backend  | Install                                               |
-| -------- | ----------------------------------------------------- |
-| Claude   | `npm install -g @anthropic-ai/claude-code`            |
-| Codex    | `npm install -g @openai/codex`                        |
-| OpenCode | [opencode.ai/docs/cli](https://opencode.ai/docs/cli/) |
 
 ---
 

@@ -13,8 +13,7 @@ const dim = '\x1b[2m';
 const bold = '\x1b[1m';
 const reset = '\x1b[0m';
 
-const REPO = 'firecrawl/cli';
-const REPO_URL = `https://github.com/${REPO}.git`;
+const DEFAULT_REPO = 'firecrawl/cli';
 const SKILLS_SUBDIR = 'skills';
 
 /** Where each agent stores global skills */
@@ -285,9 +284,11 @@ function hasDownloader(): 'curl' | 'wget' | null {
 }
 
 /** Clone repo to temp directory */
-function cloneRepo(tmpDir: string): void {
+function cloneRepo(tmpDir: string, repo: string): void {
+  const repoUrl = `https://github.com/${repo}.git`;
+
   if (hasGit()) {
-    execSync(`git clone --depth 1 "${REPO_URL}" "${tmpDir}"`, {
+    execSync(`git clone --depth 1 "${repoUrl}" "${tmpDir}"`, {
       stdio: 'pipe',
     });
     return;
@@ -301,7 +302,7 @@ function cloneRepo(tmpDir: string): void {
 
   fs.mkdirSync(tmpDir, { recursive: true });
   const tarball = path.join(tmpDir, 'repo.tar.gz');
-  const tarballUrl = `https://api.github.com/repos/${REPO}/tarball`;
+  const tarballUrl = `https://api.github.com/repos/${repo}/tarball`;
 
   if (downloader === 'curl') {
     execSync(
@@ -324,21 +325,24 @@ function cloneRepo(tmpDir: string): void {
 /**
  * Install skills natively — no npx required.
  *
- * Replicates: npx skills add firecrawl/cli --full-depth --global --all
+ * Replicates: npx skills add <repo> --full-depth --global --all
  */
-export async function installSkillsNative(): Promise<void> {
+export async function installSkillsNative(
+  repo: string = DEFAULT_REPO
+): Promise<void> {
   const home = os.homedir();
   const canonicalBase = path.join(home, CANONICAL_DIR);
   const lockFilePath = path.join(home, LOCK_FILE);
+  const repoUrl = `https://github.com/${repo}.git`;
 
   // Clone repo
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'firecrawl-skills-'));
 
   try {
     console.log(
-      `  ${dim}Downloading skills from github.com/${REPO}...${reset}`
+      `  ${dim}Downloading skills from github.com/${repo}...${reset}`
     );
-    cloneRepo(tmpDir);
+    cloneRepo(tmpDir, repo);
 
     // Discover skills
     const skillsDir = path.join(tmpDir, SKILLS_SUBDIR);
@@ -430,9 +434,9 @@ export async function installSkillsNative(): Promise<void> {
       const canonicalPath = path.join(canonicalBase, skill.name);
       const existing = lock.skills[skill.name];
       lock.skills[skill.name] = {
-        source: REPO,
+        source: repo,
         sourceType: 'github',
-        sourceUrl: REPO_URL,
+        sourceUrl: repoUrl,
         skillPath: skill.skillPath,
         skillFolderHash: hashDir(canonicalPath),
         installedAt: existing?.installedAt ?? now,

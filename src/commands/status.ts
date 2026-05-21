@@ -9,6 +9,7 @@ import packageJson from '../../package.json';
 import { isAuthenticated } from '../utils/auth';
 import { getConfig, validateConfig } from '../utils/config';
 import { loadCredentials } from '../utils/credentials';
+import { isSearchFeedbackDisabledLocally } from './search-feedback';
 
 type AuthSource = 'env' | 'stored' | 'none';
 
@@ -364,6 +365,12 @@ export async function handleStatusCommand(): Promise<void> {
   } else {
     console.log(
       `  ${dim}.gitignore:${reset} missing ${dim}- add .firecrawl/ to ignore cache${reset}`
+    );
+  }
+
+  if (isSearchFeedbackDisabledLocally()) {
+    console.log(
+      `  ${dim}Search feedback:${reset} ${red}disabled${reset} ${dim}(FIRECRAWL_NO_SEARCH_FEEDBACK is set)${reset}`
     );
   }
 
