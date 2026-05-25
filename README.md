@@ -537,6 +537,51 @@ firecrawl interact "Extract the dashboard data"
 
 ---
 
+### `monitor` - Watch pages for changes
+
+Create monitors when the goal is ongoing change detection, alerting, or repeated checks over time. A monitor runs recurring scrapes or crawls, diffs each result against the last retained snapshot, and can notify webhooks or email recipients.
+
+```bash
+firecrawl monitor create --name "Blog" \
+  --goal "Notify me when a new post is published" \
+  --schedule "every 30 minutes" \
+  --page https://example.com/blog \
+  --email alerts@example.com
+
+firecrawl monitor list --limit 20
+firecrawl monitor run <monitorId>
+firecrawl monitor checks <monitorId>
+firecrawl monitor check <monitorId> <checkId> --page-status changed
+firecrawl monitor update <monitorId> --state paused
+firecrawl monitor delete <monitorId>
+```
+
+#### Monitor Options
+
+| Option                    | Description                                         |
+| ------------------------- | --------------------------------------------------- |
+| `--name <name>`           | Monitor name                                        |
+| `--goal <goal>`           | What changes this monitor should look for           |
+| `--cron <expression>`     | Cron schedule (e.g. `*/30 * * * *`)                 |
+| `--schedule <text>`       | Natural-language schedule (e.g. `every 30 minutes`) |
+| `--timezone <tz>`         | Schedule timezone (default: `UTC`)                  |
+| `--page <url>`            | Single page URL to scrape on each check             |
+| `--scrape-urls <list>`    | Comma-separated URLs to scrape on each check        |
+| `--crawl-url <url>`       | Root URL for a crawl target                         |
+| `--webhook-url <url>`     | Webhook destination                                 |
+| `--webhook-events <list>` | Comma-separated webhook events                      |
+| `--email <list>`          | Comma-separated email recipients                    |
+| `--retention-days <n>`    | Snapshot retention window                           |
+
+For advanced targets such as JSON-mode `changeTracking`, pass a JSON payload:
+
+```bash
+firecrawl monitor create monitor.json
+cat monitor.json | firecrawl monitor create
+```
+
+---
+
 ### `config` - Configure settings
 
 ```bash
