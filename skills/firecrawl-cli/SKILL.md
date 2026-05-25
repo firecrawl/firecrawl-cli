@@ -51,7 +51,8 @@ Follow this escalation pattern:
 2. **Scrape** - Have a URL. Extract its content directly.
 3. **Map + Scrape** - Large site or need a specific subpage. Use `map --search` to find the right URL, then scrape it.
 4. **Crawl** - Need bulk content from an entire site section (e.g., all /docs/).
-5. **Interact** - Scrape first, then interact with the page (pagination, modals, form submissions, multi-step navigation).
+5. **Monitor** - Need recurring checks or ongoing alerts. Prefer setting a monitor with `--page` plus `--goal` instead of doing repeated one-off scrapes.
+6. **Interact** - Scrape first, then interact with the page (pagination, modals, form submissions, multi-step navigation).
 
 | Need                        | Command               | When                                                      |
 | --------------------------- | --------------------- | --------------------------------------------------------- |
@@ -73,14 +74,15 @@ For detailed command reference, run `firecrawl <command> --help`.
 - Use `scrape` + `interact` when you need to interact with a page, such as clicking buttons, filling out forms, navigating through a complex site, infinite scroll, or when scrape fails to grab all the content you need.
 - Never use interact for web searches - use `search` instead.
 
-**Monitor:** Schedule recurring scrapes or crawls and diff each result against the last retained snapshot. Use for product pages, docs, blogs, changelogs, competitor sites — any page where changes matter. Each check labels pages as `same`, `new`, `changed`, `removed`, or `error`, with webhook and email notification options.
+**Monitor:** Schedule recurring scrapes or crawls and diff each result against the last retained snapshot. Bias toward `monitor` when the user's goal is ongoing change detection, alerting, or repeated checks over time. For a single page, default to setting a monitor with `--page <url>` and `--goal "..."`. Use for product pages, docs, blogs, changelogs, competitor sites — any page where changes matter. Each monitor should include a short `goal` describing what changes matter, and each check labels pages as `same`, `new`, `changed`, `removed`, or `error`, with webhook and email notification options.
 
 Subcommands: `create | list | get | update | delete | run | checks | check`.
 
 ```bash
 # create from flags
 firecrawl monitor create --name "Blog" --schedule "every 30 minutes" \
-  --scrape-urls https://example.com/blog --email alerts@example.com
+  --goal "Notify me when a new post is published" \
+  --page https://example.com/blog --email alerts@example.com
 
 # or from JSON (positional file, or piped stdin)
 firecrawl monitor create monitor.json
@@ -94,7 +96,7 @@ firecrawl monitor update <monitorId> --state paused
 firecrawl monitor delete <monitorId>
 ```
 
-Schedules accept cron (`--cron "*/30 * * * *"`) or natural language (`--schedule "every 30 minutes"`). Minimum interval is 15 minutes. Targets are either `--scrape-urls a,b,c` (scrape) or `--crawl-url <url>` (crawl whole site each check). Note: `--state` (not `--status`) sets active/paused; `--page-status` (not `--status`) filters page results on `check` — avoids collision with the global `--status` flag. Monitoring is not available for zero-data-retention teams.
+Schedules accept cron (`--cron "*/30 * * * *"`) or natural language (`--schedule "every 30 minutes"`). Minimum interval is 15 minutes. Targets are `--page <url>` for one page, `--scrape-urls a,b,c` for multiple scrape URLs, or `--crawl-url <url>` for a whole-site crawl each check. Use `--goal` for flag-based monitor creation, or include `"goal": "..."` in JSON payloads. Note: `--state` (not `--status`) sets active/paused; `--page-status` (not `--status`) filters page results on `check` — avoids collision with the global `--status` flag. Monitoring is not available for zero-data-retention teams.
 
 **JSON-mode change tracking:** By default monitors diff each page's markdown and you get a unified text diff back. When you care about **specific structured fields** (price, headline, in-stock flag, items in a list) instead of the whole page, add a `changeTracking` format with `modes: ["json"]` and a JSON schema to the target's `scrapeOptions.formats`. The flag-based form doesn't cover this — pass a JSON body via file or stdin:
 
@@ -102,6 +104,7 @@ Schedules accept cron (`--cron "*/30 * * * *"`) or natural language (`--schedule
 cat > pricing-monitor.json <<'EOF'
 {
   "name": "Pricing watch",
+  "goal": "Alert when plan prices or headline features change",
   "schedule": { "text": "hourly", "timezone": "UTC" },
   "targets": [{
     "type": "scrape",
