@@ -548,6 +548,11 @@ firecrawl monitor create --name "Blog" \
   --page https://example.com/blog \
   --email alerts@example.com
 
+firecrawl monitor create --name "Product pages" \
+  --goal "Notify me when pricing, docs, or changelog content changes" \
+  --schedule "every 30 minutes" \
+  --scrape-urls https://example.com/pricing,https://example.com/docs,https://example.com/changelog
+
 firecrawl monitor list --limit 20
 firecrawl monitor run <monitorId>
 firecrawl monitor checks <monitorId>
@@ -566,7 +571,7 @@ firecrawl monitor delete <monitorId>
 | `--schedule <text>`       | Natural-language schedule (e.g. `every 30 minutes`) |
 | `--timezone <tz>`         | Schedule timezone (default: `UTC`)                  |
 | `--page <url>`            | Single page URL to scrape on each check             |
-| `--scrape-urls <list>`    | Comma-separated URLs to scrape on each check        |
+| `--scrape-urls <list>`    | Comma-separated page URLs to scrape on each check   |
 | `--crawl-url <url>`       | Root URL for a crawl target                         |
 | `--webhook-url <url>`     | Webhook destination                                 |
 | `--webhook-events <list>` | Comma-separated webhook events                      |

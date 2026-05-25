@@ -241,7 +241,7 @@ export function createMonitorCommand(): Command {
       .option('--page <url>', 'Single page URL to scrape on each check')
       .option(
         '--scrape-urls <list>',
-        'Comma-separated URLs to scrape on each check',
+        'Comma-separated page URLs to scrape on each check',
         parseCommaList
       )
       .option('--crawl-url <url>', 'Root URL for a crawl target')

@@ -84,6 +84,11 @@ firecrawl monitor create --name "Blog" --schedule "every 30 minutes" \
   --goal "Notify me when a new post is published" \
   --page https://example.com/blog --email alerts@example.com
 
+# multiple pages
+firecrawl monitor create --name "Product pages" --schedule "every 30 minutes" \
+  --goal "Notify me when pricing, docs, or changelog content changes" \
+  --scrape-urls https://example.com/pricing,https://example.com/docs,https://example.com/changelog
+
 # or from JSON (positional file, or piped stdin)
 firecrawl monitor create monitor.json
 cat monitor.json | firecrawl monitor create
