@@ -3,7 +3,7 @@
  * Provides a singleton client instance initialized with global configuration
  */
 
-import Firecrawl from 'firecrawl';
+import { Firecrawl } from 'firecrawl';
 import type { FirecrawlClientOptions } from 'firecrawl';
 import {
   getConfig,
