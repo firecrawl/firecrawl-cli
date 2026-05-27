@@ -4,7 +4,7 @@
  * Monitors run recurring scrapes/crawls and diff each result against the last
  * retained snapshot. See features/monitoring in the docs.
  *
- * @mendable/firecrawl-js@4.22.2 exposes monitor methods (createMonitor,
+ * firecrawl@4.22.2 exposes monitor methods (createMonitor,
  * listMonitors, getMonitor, updateMonitor, deleteMonitor, runMonitor,
  * listMonitorChecks, getMonitorCheck), but its HttpClient injects a top-level
  * `origin: js-sdk@<version>` field into every POST/PATCH body and the
