@@ -54,7 +54,7 @@ import { ensureAuthenticated, printBanner } from './utils/auth';
 import packageJson from '../package.json';
 import type { SearchSource, SearchCategory } from './types/search';
 import type { ScrapeFormat } from './types/scrape';
-import type { AgentWebhookConfig } from '@mendable/firecrawl-js';
+import type { AgentWebhookConfig } from 'firecrawl';
 import { createCreateCommand } from './commands/create';
 
 // Initialize global configuration from environment variables
